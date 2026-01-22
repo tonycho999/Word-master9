@@ -1,5 +1,5 @@
 {
-  "short_name": "WordGame",
+  "short_name": "WordMaster",
   "name": "Word Scramble Master",
   "icons": [
     {
@@ -19,6 +19,5 @@
   "display": "standalone",
   "theme_color": "#4f46e5",
   "background_color": "#ffffff",
-  "display_override": ["window-controls-overlay"],
   "scope": "/"
 }
