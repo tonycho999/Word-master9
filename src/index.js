@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import App from './App';
-import * as serviceWorkerRegistration from './serviceWorkerRegistration'; // 이 라인이 있는지 확인
+import * as serviceWorkerRegistration from './serviceWorkerRegistration'; // 추가
 
 ReactDOM.render(
   <React.StrictMode>
@@ -10,5 +10,5 @@ ReactDOM.render(
   document.getElementById('root')
 );
 
-// unregister()를 register()로 변경하세요!
+// unregister()에서 register()로 변경
 serviceWorkerRegistration.register();
