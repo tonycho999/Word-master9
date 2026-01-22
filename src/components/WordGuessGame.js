@@ -1,10 +1,3 @@
-빌드 에러의 원인은 코드 상단 import 문에 사용하지 않는 **FileStack**이라는 항목이 포함되어 있기 때문입니다. 현재 Vercel 빌드 설정이 경고(Warning)를 에러로 취급하도록 되어 있어 발생한 문제입니다.
-
-해당 부분을 삭제하고, 전체 코드를 깔끔하게 정리해 드립니다. 이 코드를 복사해서 덮어쓰시면 빌드가 정상적으로 완료될 것입니다.
-
-수정된 전체 코드 (src/components/WordGuessGame.js)
-JavaScript
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Trophy, Lightbulb, RotateCcw, Sparkles } from 'lucide-react';
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
@@ -13,13 +6,23 @@ const WordGuessGame = () => {
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => Number(localStorage.getItem('word-game-score')) || 0);
   const [usedWordIndices, setUsedWordIndices] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('word-game-used-indices')) || []; } catch { return []; }
+    try {
+      const saved = localStorage.getItem('word-game-used-indices');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
 
   const [currentWord, setCurrentWord] = useState(() => localStorage.getItem('word-game-current-word') || '');
   const [category, setCategory] = useState(() => localStorage.getItem('word-game-category') || '');
   const [scrambledLetters, setScrambledLetters] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('word-game-scrambled')) || []; } catch { return []; }
+    try {
+      const saved = localStorage.getItem('word-game-scrambled');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
 
   const [selectedLetters, setSelectedLetters] = useState([]);
@@ -109,10 +112,10 @@ const WordGuessGame = () => {
           </div>
 
           <div className="flex justify-center gap-3">
-            <button onClick={() => setShowHint(!showHint)} className="flex items-center gap-1 text-xs font-bold px-4 py-2 bg-gray-50 border rounded-full">
+            <button onClick={() => setShowHint(!showHint)} className="flex items-center gap-1 text-xs font-bold px-4 py-2 bg-gray-50 border rounded-full hover:bg-gray-100">
               <Lightbulb size={14} /> HINT
             </button>
-            <button onClick={() => setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5))} className="flex items-center gap-1 text-xs font-bold px-4 py-2 bg-gray-50 border rounded-full">
+            <button onClick={() => setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5))} className="flex items-center gap-1 text-xs font-bold px-4 py-2 bg-gray-50 border rounded-full hover:bg-gray-100">
               <RotateCcw size={14} /> SHUFFLE
             </button>
           </div>
@@ -128,7 +131,7 @@ const WordGuessGame = () => {
                 setSelectedLetters(prev => [...prev, l]);
                 setMessage('');
               }} 
-              className="w-12 h-12 bg-white border-2 border-gray-100 rounded-xl font-bold text-xl shadow-sm active:scale-90 transition-all"
+              className="w-12 h-12 bg-white border-2 border-gray-100 rounded-xl font-bold text-xl shadow-sm hover:border-indigo-400 active:scale-90 transition-all"
             >
               {l.char.toUpperCase()}
             </button>
@@ -163,8 +166,8 @@ const WordGuessGame = () => {
             setScrambledLetters(prev => [...prev, ...selectedLetters]);
             setSelectedLetters([]);
             setMessage('');
-          }} className="flex-1 bg-gray-100 py-4 rounded-2xl font-bold text-gray-400">RESET</button>
-          <button onClick={checkGuess} disabled={selectedLetters.length === 0 || isCorrect} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg disabled:bg-green-500">
+          }} className="flex-1 bg-gray-100 py-4 rounded-2xl font-bold text-gray-400 hover:bg-gray-200">RESET</button>
+          <button onClick={checkGuess} disabled={selectedLetters.length === 0 || isCorrect} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg disabled:bg-green-500 transition-colors">
             {isCorrect ? 'PERFECT!' : 'CHECK'}
           </button>
         </div>
