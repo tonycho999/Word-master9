@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Trophy, RotateCcw, CheckCircle, XCircle, Lightbulb } from 'lucide-react';
+import { Sparkles, Trophy, RotateCcw, CheckCircle, XCircle } from 'lucide-react';
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
 
 const WordGuessGame = () => {
-  // [1] 초기화: localStorage에서 직접 읽어오기
+  // [1] 초기화: 모든 상태를 로컬 스토리지에서 복구
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => Number(localStorage.getItem('word-game-score')) || 0);
   const [usedWordIndices, setUsedWordIndices] = useState(() => {
@@ -12,15 +12,30 @@ const WordGuessGame = () => {
     } catch { return []; }
   });
 
-  const [currentWord, setCurrentWord] = useState('');
-  const [category, setCategory] = useState('');
-  const [scrambledLetters, setScrambledLetters] = useState([]);
+  // 현재 진행 중인 문제 정보 저장
+  const [currentWord, setCurrentWord] = useState(() => localStorage.getItem('word-game-current-word') || '');
+  const [category, setCategory] = useState(() => localStorage.getItem('word-game-category') || '');
+  const [scrambledLetters, setScrambledLetters] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('word-game-scrambled')) || [];
+    } catch { return []; }
+  });
+
   const [selectedLetters, setSelectedLetters] = useState([]);
   const [message, setMessage] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
-  const [showHint, setShowHint] = useState(false);
 
-  // [2] 단어 섞기 함수
+  // [2] 상태가 변할 때마다 즉시 저장 (새로고침 완벽 대비)
+  useEffect(() => {
+    localStorage.setItem('word-game-level', level);
+    localStorage.setItem('word-game-score', score);
+    localStorage.setItem('word-game-used-indices', JSON.stringify(usedWordIndices));
+    localStorage.setItem('word-game-current-word', currentWord);
+    localStorage.setItem('word-game-category', category);
+    localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
+  }, [level, score, usedWordIndices, currentWord, category, scrambledLetters]);
+
+  // [3] 단어 섞기 함수
   const shuffleWord = useCallback((word) => {
     if (!word) return [];
     const chars = word.replace(/\s/g, '').split('');
@@ -31,7 +46,7 @@ const WordGuessGame = () => {
     return chars.map((char, index) => ({ char, id: Math.random() + index }));
   }, []);
 
-  // [3] 단어 선택 로직 (중복 방지 강화)
+  // [4] 새 단어 불러오기 (중복 방지 및 강제 저장)
   const loadNewWord = useCallback(() => {
     let db;
     let dbKey;
@@ -39,66 +54,57 @@ const WordGuessGame = () => {
     else if (level <= 99) { db = twoWordDatabase; dbKey = 'd'; }
     else { db = threeWordDatabase; dbKey = 't'; }
 
-    // 현재까지 쓴 인덱스 가져오기
-    const savedIndices = JSON.parse(localStorage.getItem('word-game-used-indices')) || [];
     const availableIndices = db
       .map((_, index) => index)
-      .filter(index => !savedIndices.includes(`${dbKey}-${index}`));
+      .filter(index => !usedWordIndices.includes(`${dbKey}-${index}`));
 
     let targetIndex;
-    let newUsedIndices;
-
     if (availableIndices.length === 0) {
       targetIndex = Math.floor(Math.random() * db.length);
-      newUsedIndices = [`${dbKey}-${targetIndex}`];
+      setUsedWordIndices([`${dbKey}-${targetIndex}`]);
     } else {
-      const randomIndex = Math.floor(Math.random() * availableIndices.length);
-      targetIndex = availableIndices[randomIndex];
-      newUsedIndices = [...savedIndices, `${dbKey}-${targetIndex}`];
+      targetIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      setUsedWordIndices(prev => [...prev, `${dbKey}-${targetIndex}`]);
     }
 
-    // 상태 업데이트 전에 localStorage에 즉시 강제 저장 (새로고침 대비)
-    localStorage.setItem('word-game-used-indices', JSON.stringify(newUsedIndices));
-    setUsedWordIndices(newUsedIndices);
-
     const wordObj = db[targetIndex];
+    const newScrambled = shuffleWord(wordObj.word);
+
+    // 상태 업데이트
     setCurrentWord(wordObj.word);
     setCategory(wordObj.category);
-    setScrambledLetters(shuffleWord(wordObj.word));
+    setScrambledLetters(newScrambled);
     setSelectedLetters([]);
     setMessage('');
     setIsCorrect(false);
-    setShowHint(false);
-  }, [level, shuffleWord]);
+  }, [level, usedWordIndices, shuffleWord]);
 
-  // [4] 레벨이 바뀌거나 처음 시작할 때 단어 로드
+  // [5] 첫 진입 시 단어가 없으면 생성 (새로고침 시에는 여기서 걸러짐)
   useEffect(() => {
-    loadNewWord();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level]);
+    if (!currentWord) {
+      loadNewWord();
+    }
+  }, [currentWord, loadNewWord]);
 
-  // [5] 정답 확인 및 데이터 보존
+  // 정답 확인
   const checkGuess = () => {
     const userAnswer = selectedLetters.map(l => l.char).join('').toLowerCase();
     const correctAnswer = currentWord.replace(/\s/g, '').toLowerCase();
 
     if (userAnswer === correctAnswer) {
-      setMessage('Correct! 🎉');
+      setMessage('정답입니다! 🎉');
       setIsCorrect(true);
-      
       const nextLevel = level + 1;
       const nextScore = score + level * 10;
 
-      // 중요: 상태 변경 전 localStorage에 즉시 반영
-      localStorage.setItem('word-game-level', nextLevel);
-      localStorage.setItem('word-game-score', nextScore);
-
       setTimeout(() => {
+        // 다음 레벨로 넘어가기 전 현재 문제 정보 초기화 (그래야 새 단어를 불러옴)
+        setCurrentWord(''); 
         setScore(nextScore);
-        setLevel(nextLevel); // 여기서 useEffect가 트리거되어 새 단어가 로드됨
+        setLevel(nextLevel);
       }, 1500);
     } else {
-      setMessage('Incorrect. Try again!');
+      setMessage('틀렸습니다. 다시 시도해보세요!');
       setIsCorrect(false);
     }
   };
@@ -114,38 +120,61 @@ const WordGuessGame = () => {
   };
 
   const resetAnswer = () => {
-    loadNewWord(); // 아예 새 단어를 가져오거나, 기존 섞인 상태로 되돌리려면 로직 수정 가능
+    const all = [...scrambledLetters, ...selectedLetters].sort((a, b) => a.id - b.id);
+    setScrambledLetters(all);
+    setSelectedLetters([]);
   };
 
   return (
     <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md">
-        <div className="flex justify-between items-center mb-6">
-          <div className="bg-indigo-100 px-4 py-1 rounded-full text-indigo-700 font-bold">Level {level}</div>
-          <div className="text-xl font-black text-gray-800">Score: {score}</div>
+      <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <div className="bg-indigo-100 px-3 py-1 rounded-full text-indigo-700 font-bold text-sm">Level {level}</div>
+          <div className="text-lg font-black text-gray-800 flex items-center gap-1">
+            <Trophy size={16} className="text-yellow-500" /> {score}
+          </div>
         </div>
         
         <div className="text-center mb-6">
-          <span className="text-sm text-purple-500 font-bold uppercase tracking-widest">Category</span>
-          <h2 className="text-2xl font-bold text-gray-700">{category}</h2>
+          <span className="text-[10px] text-purple-400 font-bold uppercase tracking-[0.2em]">Category</span>
+          <h2 className="text-xl font-bold text-gray-700">{category}</h2>
         </div>
 
-        <div className="flex flex-wrap gap-2 justify-center mb-8 min-h-[60px]">
+        {/* 문제 글자들 */}
+        <div className="flex flex-wrap gap-2 justify-center mb-6 min-h-[50px]">
           {scrambledLetters.map(l => (
-            <button key={l.id} onClick={() => handleLetterClick(l)} className="w-12 h-12 bg-gray-50 border-2 border-gray-100 rounded-xl font-bold text-xl hover:border-indigo-500">{l.char.toUpperCase()}</button>
+            <button key={l.id} onClick={() => handleLetterClick(l)} className="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl font-bold text-lg shadow-sm active:bg-indigo-100">
+              {l.char.toUpperCase()}
+            </button>
           ))}
         </div>
 
-        <div className="min-h-[80px] bg-indigo-50 rounded-2xl flex justify-center items-center gap-2 p-4 mb-8 border-2 border-dashed border-indigo-200">
+        {/* 선택한 글자들 */}
+        <div className="min-h-[70px] bg-indigo-50 rounded-2xl flex justify-center items-center gap-2 p-3 mb-6 border-2 border-dashed border-indigo-200">
           {selectedLetters.map(l => (
-            <button key={l.id} onClick={() => handleSelectedLetterClick(l)} className="w-12 h-12 bg-indigo-600 text-white rounded-xl font-bold text-xl shadow-md">{l.char.toUpperCase()}</button>
+            <button key={l.id} onClick={() => handleSelectedLetterClick(l)} className="w-10 h-10 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-md">
+              {l.char.toUpperCase()}
+            </button>
           ))}
         </div>
 
-        <button onClick={checkGuess} disabled={isCorrect} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-indigo-700 disabled:bg-green-500 transition-colors">
-          {isCorrect ? 'Great!' : 'Check Answer'}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={resetAnswer} className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-bold">초기화</button>
+          <button onClick={checkGuess} disabled={isCorrect} className="flex-[2] bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg disabled:bg-green-500">
+            {isCorrect ? '정답!' : '정답 확인'}
+          </button>
+        </div>
+
+        {message && <div className={`mt-4 text-center font-bold ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>{message}</div>}
       </div>
+      
+      {/* 데이터 강제 리셋 버튼 (테스트용) */}
+      <button 
+        onClick={() => { if(window.confirm('모든 기록을 삭제할까요?')) { localStorage.clear(); window.location.reload(); } }}
+        className="mt-8 text-indigo-200 text-xs underline opacity-50"
+      >
+        게임 전체 초기화
+      </button>
     </div>
   );
 };
