@@ -14,7 +14,7 @@ const WordGuessGame = () => {
   const [showHint, setShowHint] = useState(false);
 
   // 랜덤 단어 선택
-  const getRandomWord = () => {
+  const getRandomWord = React.useCallback(() => {
     if (level <= 19) {
       // 1-19 레벨: 1단어
       const index = Math.floor(Math.random() * wordDatabase.length);
@@ -28,17 +28,17 @@ const WordGuessGame = () => {
       const index = Math.floor(Math.random() * threeWordDatabase.length);
       return threeWordDatabase[index];
     }
-  };
+  }, [level]);
 
   // 단어 섞기
-  const shuffleWord = (word) => {
+  const shuffleWord = React.useCallback((word) => {
     const chars = word.replace(/\s/g, '').split('');
     for (let i = chars.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [chars[i], chars[j]] = [chars[j], chars[i]];
     }
     return chars.map((char, index) => ({ char, id: index }));
-  };
+  }, []);
 
   // 레벨 초기화
   useEffect(() => {
@@ -50,7 +50,7 @@ const WordGuessGame = () => {
     setMessage('');
     setIsCorrect(false);
     setShowHint(false);
-  }, [level]);
+  }, [level, getRandomWord, shuffleWord]);
 
   // 글자 클릭 처리
   const handleLetterClick = (letter) => {
