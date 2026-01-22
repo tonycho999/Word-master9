@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Trophy, Lightbulb, RotateCcw, Sparkles, Download, X, Delete } from 'lucide-react';
+import { Trophy, Lightbulb, RotateCcw, Sparkles, Download, X, Delete, ArrowRight } from 'lucide-react';
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
 
 const WordGuessGame = () => {
@@ -37,6 +37,16 @@ const WordGuessGame = () => {
     localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
   }, [level, score, usedWordIndices, currentWord, category, scrambledLetters]);
 
+  // 다음 레벨로 넘어가는 핵심 함수
+  const goToNextLevel = useCallback(() => {
+    if (!isCorrect) return;
+    const earnedScore = targetWords.length * 10;
+    setScore(s => s + earnedScore);
+    setLevel(l => l + 1);
+    setCurrentWord('');
+    setIsCorrect(false);
+  }, [isCorrect, targetWords.length]);
+
   const loadNewWord = useCallback(() => {
     let db = level <= 19 ? wordDatabase : level <= 99 ? twoWordDatabase : threeWordDatabase;
     const dbKey = level <= 19 ? 's' : level <= 99 ? 'd' : 't';
@@ -69,7 +79,7 @@ const WordGuessGame = () => {
     if (!currentWord) loadNewWord();
   }, [currentWord, loadNewWord]);
 
-  // 실시간 정답 체크 로직
+  // 실시간 정답 체크
   useEffect(() => {
     if (selectedLetters.length === 0 || !currentWord || isCorrect) return;
 
@@ -80,17 +90,14 @@ const WordGuessGame = () => {
       setIsCorrect(true);
       setMessage('EXCELLENT! 🎉');
       
-      const earnedScore = targetWords.length * 10;
-      
-      const nextTimer = setTimeout(() => {
-        setScore(s => s + earnedScore);
-        setLevel(l => l + 1);
-        setCurrentWord('');
-      }, 2000); // 2초 후 다음 레벨
+      // 3초 후 자동으로 넘어가기 (버튼을 안 누를 경우 대비)
+      const autoNext = setTimeout(() => {
+        goToNextLevel();
+      }, 3000);
 
-      return () => clearTimeout(nextTimer);
+      return () => clearTimeout(autoNext);
     }
-  }, [selectedLetters, currentWord, isCorrect, targetWords.length]);
+  }, [selectedLetters, currentWord, isCorrect, goToNextLevel]);
 
   const handleHintClick = () => {
     if (!showHint) {
@@ -106,7 +113,6 @@ const WordGuessGame = () => {
     setShowInstallGuide(false);
   };
 
-  // 한 글자 지우기 (마지막 글자 되돌리기)
   const removeLastLetter = () => {
     if (selectedLetters.length === 0 || isCorrect) return;
     const lastLetter = selectedLetters[selectedLetters.length - 1];
@@ -162,41 +168,22 @@ const WordGuessGame = () => {
   return (
     <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-4 font-sans text-gray-800 relative">
       
-      {/* --- 설치 안내 모달 --- */}
       {showInstallGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-indigo-900/80 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-indigo-900/80 backdrop-blur-sm">
           <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-indigo-500">
-            <button onClick={closeInstallGuide} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
-              <X size={24} />
-            </button>
-            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
-              <Download size={32} />
-            </div>
+            <button onClick={closeInstallGuide} className="absolute top-4 right-4 text-gray-400"><X size={24} /></button>
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><Download size={32} /></div>
             <h3 className="text-xl font-black mb-2 text-indigo-900 uppercase">앱 설치 안내</h3>
-            <p className="text-sm text-gray-500 mb-6 leading-relaxed font-medium">홈 화면에 추가하여 더 빠르게 시작하세요!</p>
-            <div className="space-y-4 text-left bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-6">
-              <div className="flex items-start gap-4">
-                <div className="bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded-md mt-0.5 min-w-[55px] text-center">ANDROID</div>
-                <div>
-                  <p className="text-xs font-bold text-gray-800 mb-1">크롬/삼성 브라우저</p>
-                  <p className="text-[11px] text-gray-600 leading-tight">우측 상단 <strong>메뉴(⋮)</strong> 클릭 후 <br/><strong>'홈 화면에 추가'</strong>를 눌러주세요.</p>
-                </div>
-              </div>
-              <div className="h-px bg-gray-200 w-full" />
-              <div className="flex items-start gap-4">
-                <div className="bg-gray-400 text-white text-[10px] font-black px-2 py-1 rounded-md mt-0.5 min-w-[55px] text-center">IOS</div>
-                <div>
-                  <p className="text-xs font-bold text-gray-800 mb-1">사파리(Safari)</p>
-                  <p className="text-[11px] text-gray-600 leading-tight">하단 <strong>공유 아이콘(↑)</strong> 클릭 후 <br/><strong>'홈 화면에 추가'</strong>를 눌러주세요.</p>
-                </div>
-              </div>
+            <p className="text-sm text-gray-500 mb-6">홈 화면에 추가하여 더 빠르게 시작하세요!</p>
+            <div className="space-y-4 text-left bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-6 text-[11px]">
+              <p><strong>ANDROID:</strong> 메뉴(⋮) 클릭 후 '홈 화면에 추가'</p>
+              <p><strong>IOS:</strong> 공유 아이콘(↑) 클릭 후 '홈 화면에 추가'</p>
             </div>
-            <button onClick={closeInstallGuide} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">확인했습니다!</button>
+            <button onClick={closeInstallGuide} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg">확인했습니다!</button>
           </div>
         </div>
       )}
 
-      {/* --- 메인 게임 UI --- */}
       <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2 font-bold text-indigo-600 uppercase">
@@ -208,21 +195,17 @@ const WordGuessGame = () => {
         </div>
 
         <div className="text-center mb-6">
-          <div className="flex flex-col items-center gap-1 mb-4">
-            <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">{category}</h2>
-            <div className="mt-2">
-              <span className="text-[11px] font-black text-white bg-indigo-500 px-3 py-1 rounded-full shadow-sm">
-                {targetWords.length} {targetWords.length > 1 ? 'WORDS' : 'WORD'}
-              </span>
-            </div>
-          </div>
+          <h2 className="text-2xl font-black uppercase tracking-tighter mb-1">{category}</h2>
+          <span className="text-[11px] font-black text-white bg-indigo-500 px-3 py-1 rounded-full shadow-sm mb-4 inline-block">
+            {targetWords.length} {targetWords.length > 1 ? 'WORDS' : 'WORD'}
+          </span>
 
           <div className="flex justify-center gap-3">
-            <button onClick={handleHintClick} className="px-4 py-2 bg-gray-50 border rounded-full text-xs font-bold active:bg-gray-200 transition-colors">
+            <button onClick={handleHintClick} className="px-4 py-2 bg-gray-50 border rounded-full text-xs font-bold transition-colors">
               <Lightbulb size={14} className={`inline mr-1 ${showHint ? 'text-yellow-500' : ''}`}/>
               {showHint ? 'HINT ON' : 'HINT (-100)'}
             </button>
-            <button onClick={() => { if (!isCorrect) setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5)) }} className="px-4 py-2 bg-gray-50 border rounded-full text-xs font-bold active:bg-gray-200 transition-colors">
+            <button onClick={() => { if (!isCorrect) setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5)) }} className="px-4 py-2 bg-gray-50 border rounded-full text-xs font-bold transition-colors">
               <RotateCcw size={14} className="inline mr-1"/>SHUFFLE
             </button>
           </div>
@@ -254,22 +237,34 @@ const WordGuessGame = () => {
           )}
         </div>
 
-        <div className="flex gap-2">
-          <button onClick={() => {
-            if (isCorrect) return;
-            setScrambledLetters(prev => [...prev, ...selectedLetters]);
-            setSelectedLetters([]);
-            setMessage('');
-          }} className="flex-1 bg-gray-50 py-4 rounded-2xl font-bold text-gray-400 hover:bg-gray-100 transition-colors uppercase">Reset</button>
-          
-          {/* CHECK 버튼 대신 BACKSPACE(지우기) 버튼 추가 */}
-          <button 
-            onClick={removeLastLetter} 
-            disabled={selectedLetters.length === 0 || isCorrect} 
-            className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg active:bg-indigo-700 disabled:bg-indigo-300 transition-all flex items-center justify-center gap-2 uppercase"
-          >
-            {isCorrect ? 'GOOD!' : <><Delete size={20} /> Backspace</>}
-          </button>
+        {/* --- 하단 버튼 영역 --- */}
+        <div className="space-y-3">
+          {/* 정답일 때만 나타나는 다음 레벨 버튼 */}
+          {isCorrect ? (
+            <button 
+              onClick={goToNextLevel}
+              className="w-full bg-green-500 text-white py-4 rounded-2xl font-black text-xl shadow-lg animate-in zoom-in slide-in-from-bottom-4 duration-300 flex items-center justify-center gap-2"
+            >
+              NEXT LEVEL <ArrowRight size={24} />
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={() => {
+                if (isCorrect) return;
+                setScrambledLetters(prev => [...prev, ...selectedLetters]);
+                setSelectedLetters([]);
+                setMessage('');
+              }} className="flex-1 bg-gray-50 py-4 rounded-2xl font-bold text-gray-400 uppercase">Reset</button>
+              
+              <button 
+                onClick={removeLastLetter} 
+                disabled={selectedLetters.length === 0} 
+                className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg active:bg-indigo-700 disabled:bg-indigo-300 flex items-center justify-center gap-2 uppercase"
+              >
+                <Delete size={20} /> Backspace
+              </button>
+            </div>
+          )}
         </div>
         
         {message && <div className="mt-4 text-center font-black text-indigo-600 tracking-widest uppercase animate-pulse">{message}</div>}
