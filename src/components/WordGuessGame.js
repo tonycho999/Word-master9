@@ -3,14 +3,12 @@ import { Trophy, Lightbulb, RotateCcw, Sparkles, Download, X, Delete, ArrowRight
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
 
 const WordGuessGame = () => {
-  // --- 상태 관리 ---
+  // --- 1. 상태 관리 ---
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => {
     const savedScore = localStorage.getItem('word-game-score');
     return savedScore !== null ? Number(savedScore) : 300;
   });
-
-  // 이미 사용한 단어의 고유 ID를 저장하는 배열
   const [usedWordIds, setUsedWordIds] = useState(() => {
     try {
       const saved = localStorage.getItem('word-game-used-ids');
@@ -37,7 +35,7 @@ const WordGuessGame = () => {
     currentWord.toLowerCase().split(/\s+/).filter(w => w.length > 0)
   , [currentWord]);
 
-  // --- 데이터 저장 ---
+  // --- 2. 로컬 스토리지 저장 ---
   useEffect(() => {
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
@@ -47,32 +45,25 @@ const WordGuessGame = () => {
     localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
   }, [level, score, usedWordIds, currentWord, category, scrambledLetters]);
 
-  // --- 중복 방지 단어 로드 로직 ---
+  // --- 3. 단어 로드 로직 (중복 방지 강화) ---
   const loadNewWord = useCallback(() => {
     let db = level <= 19 ? wordDatabase : level <= 99 ? twoWordDatabase : threeWordDatabase;
     const dbPrefix = level <= 19 ? 'LV1' : level <= 99 ? 'LV2' : 'LV3';
 
-    // 1. 현재 DB에서 아직 사용하지 않은 단어들만 필터링
-    // 각 단어 객체에 식별자가 없으므로 '단어내용-카테고리' 조합으로 고유 ID 생성
     const availableWords = db.filter(item => {
       const wordId = `${dbPrefix}-${item.word}-${item.category}`;
       return !usedWordIds.includes(wordId);
     });
 
     let selectedWordObj;
-
     if (availableWords.length > 0) {
-      // 아직 안 푼 문제가 있으면 그 중에서 랜덤 선택
       selectedWordObj = availableWords[Math.floor(Math.random() * availableWords.length)];
     } else {
-      // 해당 레벨의 모든 문제를 다 풀었을 경우: 
-      // 사용 기록을 초기화하거나, 그냥 전체 DB에서 랜덤 선택 (여기서는 랜덤 선택)
       selectedWordObj = db[Math.floor(Math.random() * db.length)];
     }
 
     const wordId = `${dbPrefix}-${selectedWordObj.word}-${selectedWordObj.category}`;
 
-    // 글자 섞기 로직
     const chars = selectedWordObj.word.replace(/\s/g, '').split('').map((char, i) => ({ 
       char, 
       id: `letter-${Date.now()}-${i}-${Math.random()}` 
@@ -83,7 +74,6 @@ const WordGuessGame = () => {
       [chars[i], chars[j]] = [chars[j], chars[i]];
     }
 
-    // 상태 업데이트
     setUsedWordIds(prev => [...prev, wordId]);
     setCurrentWord(selectedWordObj.word);
     setCategory(selectedWordObj.category);
@@ -95,46 +85,40 @@ const WordGuessGame = () => {
   }, [level, usedWordIds]);
 
   useEffect(() => {
-    if (!currentWord) {
-      loadNewWord();
-    }
+    if (!currentWord) loadNewWord();
   }, [currentWord, loadNewWord]);
 
-  // --- 레벨업 함수 ---
-  const goToNextLevel = useCallback(() => {
-    if (!isCorrect) return;
-    const earnedScore = targetWords.length * 10;
-    setScore(s => s + earnedScore);
-    setLevel(l => l + 1);
-    setCurrentWord(''); // 이 값이 비워져야 loadNewWord가 호출됨
-  }, [isCorrect, targetWords.length]);
-
-  // 실시간 정답 체크
+  // --- 4. 정답 체크 및 레벨업 ---
   useEffect(() => {
     if (selectedLetters.length === 0 || !currentWord || isCorrect) return;
 
     const userAll = selectedLetters.map(l => l.char).join('').toLowerCase();
     const correctAll = currentWord.replace(/\s/g, '').toLowerCase();
 
-    if (userAll === correctAll) {
-      setIsCorrect(true);
-      setMessage('EXCELLENT! 🎉');
-      
-      const autoNext = setTimeout(() => {
-        goToNextLevel();
-      }, 3000);
-
-      return () => clearTimeout(autoNext);
+    // 사용자가 입력한 글자 수가 정답 길이와 같을 때 체크
+    if (userAll.length === correctAll.length) {
+      if (userAll === correctAll) {
+        setIsCorrect(true);
+        setMessage('EXCELLENT! 🎉');
+      } else {
+        setMessage('TRY AGAIN!');
+      }
     }
-  }, [selectedLetters, currentWord, isCorrect, goToNextLevel]);
+  }, [selectedLetters, currentWord, isCorrect]);
 
-  // --- 핸들러 ---
+  const goToNextLevel = () => {
+    const earnedScore = targetWords.length * 10;
+    setScore(s => s + earnedScore);
+    setLevel(l => l + 1);
+    setCurrentWord(''); // 이 설정이 loadNewWord를 트리거함
+    setIsCorrect(false);
+  };
+
+  // --- 5. 유틸리티 함수 ---
   const handleHintClick = () => {
-    if (!showHint) {
-      setScore(prev => Math.max(0, prev - 100));
+    if (!showHint && score >= 100) {
+      setScore(prev => prev - 100);
       setShowHint(true);
-    } else {
-      setShowHint(false);
     }
   };
 
@@ -151,6 +135,7 @@ const WordGuessGame = () => {
     setShowInstallGuide(false);
   };
 
+  // --- 6. 렌더링 도우미 ---
   const renderFreeOrderWords = () => {
     let tempSelected = [...selectedLetters];
     let matchedWords = Array(targetWords.length).fill(null);
@@ -178,16 +163,11 @@ const WordGuessGame = () => {
         <div key={`row-${idx}`} className="flex flex-col items-center mb-6 last:mb-0 w-full">
           <div className="flex gap-2 items-center flex-wrap justify-center min-h-[48px]">
             {displayLetters.map((l) => (
-              <span key={l.id} onClick={() => {
-                if (isCorrect) return;
-                setSelectedLetters(prev => prev.filter(i => i.id !== l.id));
-                setScrambledLetters(prev => [...prev, l]);
-                setMessage('');
-              }} className={`font-black cursor-pointer transition-all duration-300 ${isWordCorrect ? 'text-green-500 scale-110' : 'text-indigo-600'} ${target.length > 8 ? 'text-2xl' : 'text-4xl'}`}>
+              <span key={l.id} className={`font-black ${isWordCorrect ? 'text-green-500 scale-110' : 'text-indigo-600'} ${target.length > 8 ? 'text-2xl' : 'text-4xl'}`}>
                 {l.char.toUpperCase()}
               </span>
             ))}
-            {isWordCorrect && <span className="text-green-500 font-bold ml-2 text-2xl animate-bounce">✓</span>}
+            {isWordCorrect && <span className="text-green-500 font-bold ml-2 text-2xl">✓</span>}
           </div>
           <div className={`h-1.5 rounded-full mt-2 transition-all duration-500 ${isWordCorrect ? 'bg-green-400 w-full' : 'bg-indigo-100 w-20'}`} />
         </div>
@@ -196,28 +176,29 @@ const WordGuessGame = () => {
   };
 
   return (
-    <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-4 font-sans text-gray-800 relative">
+    <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-4 font-sans text-gray-800">
       
+      {/* 설치 안내창 */}
       {showInstallGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-indigo-900/80 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-8 w-full max-sm shadow-2xl relative text-center border-t-8 border-indigo-500">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-indigo-500">
             <button onClick={closeInstallGuide} className="absolute top-4 right-4 text-gray-400"><X size={24} /></button>
             <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><Download size={32} /></div>
-            <h3 className="text-xl font-black mb-2 text-indigo-900 uppercase">앱 설치 안내</h3>
-            <p className="text-sm text-gray-500 mb-6">홈 화면에 추가하여 더 빠르게 시작하세요!</p>
-            <div className="space-y-4 text-left bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-6 text-[11px]">
-              <p><strong>ANDROID:</strong> 메뉴(⋮) 클릭 후 '홈 화면에 추가'</p>
-              <p><strong>IOS:</strong> 공유 아이콘(↑) 클릭 후 '홈 화면에 추가'</p>
+            <h3 className="text-xl font-black mb-2 text-indigo-900">앱 설치 방법</h3>
+            <div className="space-y-4 text-left bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-6 text-xs leading-relaxed">
+              <p><strong>안드로이드:</strong> 브라우저 우측 상단 <strong>메뉴(⋮)</strong> 클릭 후 <strong>'홈 화면에 추가'</strong>를 누르세요.</p>
+              <p><strong>아이폰:</strong> 하단 <strong>공유 아이콘(↑)</strong> 클릭 후 <strong>'홈 화면에 추가'</strong>를 누르세요.</p>
             </div>
-            <button onClick={closeInstallGuide} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg">확인했습니다!</button>
+            <button onClick={closeInstallGuide} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg">확인했습니다</button>
           </div>
         </div>
       )}
 
+      {/* 메인 게임 카드 */}
       <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2 font-bold text-indigo-600 uppercase text-sm">
-            <Sparkles size={16} className="text-yellow-400" /> Level {level}
+          <div className="flex items-center gap-2 font-bold text-indigo-600 uppercase">
+            <Sparkles size={18} className="text-yellow-400" /> Level {level}
           </div>
           <div className="flex items-center gap-1 font-black text-gray-700">
             <Trophy size={18} className="text-yellow-500" /> {score}
@@ -225,29 +206,28 @@ const WordGuessGame = () => {
         </div>
 
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-black uppercase tracking-tighter leading-none mb-1">{category}</h2>
-          <div className="mb-4">
-            <span className="text-[11px] font-black text-white bg-indigo-500 px-3 py-1 rounded-full shadow-sm">
-              {targetWords.length} {targetWords.length > 1 ? 'WORDS' : 'WORD'}
-            </span>
-          </div>
+          <h2 className="text-2xl font-black uppercase mb-1">{category}</h2>
+          <span className="text-[11px] font-black text-white bg-indigo-500 px-3 py-1 rounded-full mb-4 inline-block shadow-sm">
+            {targetWords.length} {targetWords.length > 1 ? 'WORDS' : 'WORD'}
+          </span>
 
           <div className="flex justify-center gap-3">
-            <button onClick={handleHintClick} className="px-4 py-2 bg-gray-50 border rounded-full text-xs font-bold transition-colors shadow-sm active:bg-gray-200">
+            <button onClick={handleHintClick} className="px-4 py-2 bg-gray-50 border rounded-full text-xs font-bold shadow-sm">
               <Lightbulb size={14} className={`inline mr-1 ${showHint ? 'text-yellow-500' : ''}`}/>
               {showHint ? 'HINT ON' : 'HINT (-100)'}
             </button>
-            <button onClick={() => { if (!isCorrect) setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5)) }} className="px-4 py-2 bg-gray-50 border rounded-full text-xs font-bold transition-colors shadow-sm active:bg-gray-200">
+            <button onClick={() => { if (!isCorrect) setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5)) }} className="px-4 py-2 bg-gray-50 border rounded-full text-xs font-bold shadow-sm">
               <RotateCcw size={14} className="inline mr-1"/>SHUFFLE
             </button>
           </div>
           {showHint && (
-            <div className="mt-3 p-2 bg-yellow-50 rounded-xl border border-yellow-100 text-xs text-yellow-700 font-bold animate-pulse">
-              Hint: <span className="text-indigo-600">{targetWords.map(w => w[0].toUpperCase() + "...").join(", ")}</span>
+            <div className="mt-3 p-2 bg-yellow-50 rounded-xl border border-yellow-100 text-xs text-indigo-600 font-bold">
+              Hint: {targetWords.map(w => w[0].toUpperCase() + "...").join(", ")}
             </div>
           )}
         </div>
 
+        {/* 알파벳 버튼 영역 */}
         <div className="flex flex-wrap gap-2 justify-center mb-8 min-h-[60px]">
           {scrambledLetters.map(l => (
             <button 
@@ -258,26 +238,28 @@ const WordGuessGame = () => {
                 setSelectedLetters(prev => [...prev, l]);
                 setMessage('');
               }} 
-              className="w-11 h-11 bg-white border-2 border-gray-100 rounded-xl font-bold text-lg shadow-sm active:scale-95 transition-all hover:border-indigo-400"
+              className="w-11 h-11 bg-white border-2 border-gray-100 rounded-xl font-bold text-lg shadow-sm active:scale-95 transition-all"
             >
               {l.char.toUpperCase()}
             </button>
           ))}
         </div>
 
+        {/* 답변 영역 */}
         <div className="min-h-[180px] bg-indigo-50 rounded-2xl flex flex-col justify-center items-center p-6 mb-8 border-2 border-dashed border-indigo-200">
           {selectedLetters.length === 0 ? (
-            <span className="text-indigo-200 text-sm font-bold uppercase tracking-widest text-center">Touch Letters to Answer</span>
+            <span className="text-indigo-200 text-sm font-bold uppercase tracking-widest">Touch Letters</span>
           ) : (
             <div className="w-full">{renderFreeOrderWords()}</div>
           )}
         </div>
 
-        <div className="space-y-3">
+        {/* 하단 제어 버튼 */}
+        <div className="min-h-[64px]">
           {isCorrect ? (
             <button 
               onClick={goToNextLevel}
-              className="w-full bg-green-500 text-white py-4 rounded-2xl font-black text-xl shadow-lg flex items-center justify-center gap-2 hover:bg-green-600 transition-colors animate-in zoom-in"
+              className="w-full bg-green-500 text-white py-4 rounded-2xl font-black text-xl shadow-lg flex items-center justify-center gap-2 animate-bounce"
             >
               NEXT LEVEL <ArrowRight size={24} />
             </button>
@@ -285,19 +267,18 @@ const WordGuessGame = () => {
             <div className="flex gap-2">
               <button 
                 onClick={() => {
-                  if (isCorrect) return;
                   setScrambledLetters(prev => [...prev, ...selectedLetters]);
                   setSelectedLetters([]);
                   setMessage('');
                 }} 
-                className="flex-1 bg-gray-50 py-4 rounded-2xl font-bold text-gray-400 uppercase active:bg-gray-100"
+                className="flex-1 bg-gray-50 py-4 rounded-2xl font-bold text-gray-400 uppercase"
               >
                 Reset
               </button>
               <button 
                 onClick={removeLastLetter} 
                 disabled={selectedLetters.length === 0} 
-                className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg active:bg-indigo-700 disabled:bg-indigo-300 flex items-center justify-center gap-2 uppercase"
+                className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg active:bg-indigo-700 disabled:bg-indigo-300 flex items-center justify-center gap-2"
               >
                 <Delete size={20} /> Backspace
               </button>
