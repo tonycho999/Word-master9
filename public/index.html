@@ -2,34 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#4f46e5" />
-    <meta name="description" content="Word Scramble Master - Unscramble letters to form words!" />
     
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="manifest" href="/manifest.json" />
 
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="WordGame">
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png">
+    <link rel="apple-touch-icon" href="/logo192.png">
 
     <title>Word Scramble Master</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
 
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./service-worker.js')
-            .then((reg) => {
-              console.log('Service Worker registered successfully:', reg.scope);
-            })
-            .catch((err) => {
-              console.log('Service Worker registration failed:', err);
-            });
+          // 등록 경로를 명확히 지정
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('SW Registered'))
+            .catch(err => console.error('SW Registration Failed', err));
         });
       }
     </script>
