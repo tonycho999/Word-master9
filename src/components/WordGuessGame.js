@@ -9,14 +9,22 @@ const WordGuessGame = () => {
     const savedScore = localStorage.getItem('word-game-score');
     return savedScore !== null ? Number(savedScore) : 300;
   });
-  const [usedWordIndices, setUsedWordIndices] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('word-game-used-indices')) || []; } catch { return []; }
+
+  // 이미 사용한 단어의 고유 ID를 저장하는 배열
+  const [usedWordIds, setUsedWordIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('word-game-used-ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const [currentWord, setCurrentWord] = useState(() => localStorage.getItem('word-game-current-word') || '');
   const [category, setCategory] = useState(() => localStorage.getItem('word-game-category') || '');
   const [scrambledLetters, setScrambledLetters] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('word-game-scrambled')) || []; } catch { return []; }
+    try {
+      const saved = localStorage.getItem('word-game-scrambled');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const [selectedLetters, setSelectedLetters] = useState([]);
@@ -29,61 +37,76 @@ const WordGuessGame = () => {
     currentWord.toLowerCase().split(/\s+/).filter(w => w.length > 0)
   , [currentWord]);
 
-  // --- 데이터 로컬 저장 ---
+  // --- 데이터 저장 ---
   useEffect(() => {
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
-    localStorage.setItem('word-game-used-indices', JSON.stringify(usedWordIndices));
+    localStorage.setItem('word-game-used-ids', JSON.stringify(usedWordIds));
     localStorage.setItem('word-game-current-word', currentWord);
     localStorage.setItem('word-game-category', category);
     localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
-  }, [level, score, usedWordIndices, currentWord, category, scrambledLetters]);
+  }, [level, score, usedWordIds, currentWord, category, scrambledLetters]);
 
-  // --- 단어 로드 로직 (버튼 생성 보장) ---
+  // --- 중복 방지 단어 로드 로직 ---
   const loadNewWord = useCallback(() => {
     let db = level <= 19 ? wordDatabase : level <= 99 ? twoWordDatabase : threeWordDatabase;
-    const dbKey = level <= 19 ? 's' : level <= 99 ? 'd' : 't';
-    const available = db.map((_, i) => i).filter(i => !usedWordIndices.includes(`${dbKey}-${i}`));
-    
-    let targetIndex = available.length === 0 ? Math.floor(Math.random() * db.length) : available[Math.floor(Math.random() * available.length)];
-    const wordObj = db[targetIndex];
-    
-    // 공백 제외한 모든 글자를 고유 ID와 함께 추출
-    const chars = wordObj.word.replace(/\s/g, '').split('').map((char, i) => ({ 
+    const dbPrefix = level <= 19 ? 'LV1' : level <= 99 ? 'LV2' : 'LV3';
+
+    // 1. 현재 DB에서 아직 사용하지 않은 단어들만 필터링
+    // 각 단어 객체에 식별자가 없으므로 '단어내용-카테고리' 조합으로 고유 ID 생성
+    const availableWords = db.filter(item => {
+      const wordId = `${dbPrefix}-${item.word}-${item.category}`;
+      return !usedWordIds.includes(wordId);
+    });
+
+    let selectedWordObj;
+
+    if (availableWords.length > 0) {
+      // 아직 안 푼 문제가 있으면 그 중에서 랜덤 선택
+      selectedWordObj = availableWords[Math.floor(Math.random() * availableWords.length)];
+    } else {
+      // 해당 레벨의 모든 문제를 다 풀었을 경우: 
+      // 사용 기록을 초기화하거나, 그냥 전체 DB에서 랜덤 선택 (여기서는 랜덤 선택)
+      selectedWordObj = db[Math.floor(Math.random() * db.length)];
+    }
+
+    const wordId = `${dbPrefix}-${selectedWordObj.word}-${selectedWordObj.category}`;
+
+    // 글자 섞기 로직
+    const chars = selectedWordObj.word.replace(/\s/g, '').split('').map((char, i) => ({ 
       char, 
       id: `letter-${Date.now()}-${i}-${Math.random()}` 
     }));
 
-    // 무작위 섞기
     for (let i = chars.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [chars[i], chars[j]] = [chars[j], chars[i]];
     }
 
-    setUsedWordIndices(prev => [...prev, `${dbKey}-${targetIndex}`]);
-    setCurrentWord(wordObj.word);
-    setCategory(wordObj.category);
-    setScrambledLetters(chars); // 이 부분이 버튼을 다시 생성함
+    // 상태 업데이트
+    setUsedWordIds(prev => [...prev, wordId]);
+    setCurrentWord(selectedWordObj.word);
+    setCategory(selectedWordObj.category);
+    setScrambledLetters(chars);
     setSelectedLetters([]);
     setMessage('');
     setIsCorrect(false);
     setShowHint(false);
-  }, [level, usedWordIndices]);
+  }, [level, usedWordIds]);
 
-  // 초기 로드 및 레벨업 시 실행
   useEffect(() => {
     if (!currentWord) {
       loadNewWord();
     }
   }, [currentWord, loadNewWord]);
 
-  // --- 다음 레벨 이동 함수 ---
+  // --- 레벨업 함수 ---
   const goToNextLevel = useCallback(() => {
     if (!isCorrect) return;
     const earnedScore = targetWords.length * 10;
     setScore(s => s + earnedScore);
     setLevel(l => l + 1);
-    setCurrentWord(''); // currentWord를 비우면 useEffect에 의해 loadNewWord가 실행됨
+    setCurrentWord(''); // 이 값이 비워져야 loadNewWord가 호출됨
   }, [isCorrect, targetWords.length]);
 
   // 실시간 정답 체크
@@ -175,7 +198,6 @@ const WordGuessGame = () => {
   return (
     <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-4 font-sans text-gray-800 relative">
       
-      {/* 설치 가이드 */}
       {showInstallGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-indigo-900/80 backdrop-blur-sm">
           <div className="bg-white rounded-3xl p-8 w-full max-sm shadow-2xl relative text-center border-t-8 border-indigo-500">
@@ -192,7 +214,6 @@ const WordGuessGame = () => {
         </div>
       )}
 
-      {/* 게임 메인 UI */}
       <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2 font-bold text-indigo-600 uppercase text-sm">
@@ -227,7 +248,6 @@ const WordGuessGame = () => {
           )}
         </div>
 
-        {/* --- 알파벳 버튼 영역 --- */}
         <div className="flex flex-wrap gap-2 justify-center mb-8 min-h-[60px]">
           {scrambledLetters.map(l => (
             <button 
@@ -245,7 +265,6 @@ const WordGuessGame = () => {
           ))}
         </div>
 
-        {/* --- 답변 영역 --- */}
         <div className="min-h-[180px] bg-indigo-50 rounded-2xl flex flex-col justify-center items-center p-6 mb-8 border-2 border-dashed border-indigo-200">
           {selectedLetters.length === 0 ? (
             <span className="text-indigo-200 text-sm font-bold uppercase tracking-widest text-center">Touch Letters to Answer</span>
@@ -254,7 +273,6 @@ const WordGuessGame = () => {
           )}
         </div>
 
-        {/* --- 하단 버튼 --- */}
         <div className="space-y-3">
           {isCorrect ? (
             <button 
