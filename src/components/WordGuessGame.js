@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Trophy, RotateCcw, CheckCircle, XCircle } from 'lucide-react';
+import { Trophy } from 'lucide-react'; // 사용하지 않는 아이콘 제거
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
 
 const WordGuessGame = () => {
@@ -13,7 +13,6 @@ const WordGuessGame = () => {
     } catch { return []; }
   });
 
-  // 현재 진행 중인 문제 상태 (새로고침 시 복구용)
   const [currentWord, setCurrentWord] = useState(() => localStorage.getItem('word-game-current-word') || '');
   const [category, setCategory] = useState(() => localStorage.getItem('word-game-category') || '');
   const [scrambledLetters, setScrambledLetters] = useState(() => {
@@ -27,7 +26,7 @@ const WordGuessGame = () => {
   const [message, setMessage] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
 
-  // [2] 상태 변경 시 localStorage 실시간 동기화
+  // [2] 상태 동기화
   useEffect(() => {
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
@@ -37,7 +36,6 @@ const WordGuessGame = () => {
     localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
   }, [level, score, usedWordIndices, currentWord, category, scrambledLetters]);
 
-  // [3] 단어 섞기 함수
   const shuffleWord = useCallback((word) => {
     if (!word) return [];
     const chars = word.replace(/\s/g, '').split('');
@@ -48,7 +46,6 @@ const WordGuessGame = () => {
     return chars.map((char, index) => ({ char, id: Math.random() + index }));
   }, []);
 
-  // [4] 새 단어 선택 로직
   const loadNewWord = useCallback(() => {
     let db = level <= 19 ? wordDatabase : level <= 99 ? twoWordDatabase : threeWordDatabase;
     const dbKey = level <= 19 ? 's' : level <= 99 ? 'd' : 't';
@@ -67,17 +64,14 @@ const WordGuessGame = () => {
     }
 
     const wordObj = db[targetIndex];
-    const newScrambled = shuffleWord(wordObj.word);
-
     setCurrentWord(wordObj.word);
     setCategory(wordObj.category);
-    setScrambledLetters(newScrambled);
+    setScrambledLetters(shuffleWord(wordObj.word));
     setSelectedLetters([]);
     setMessage('');
     setIsCorrect(false);
   }, [level, usedWordIndices, shuffleWord]);
 
-  // [5] 문제 로드 관리 (빌드 에러 방지 주석 포함)
   useEffect(() => {
     if (!currentWord) {
       loadNewWord();
@@ -85,7 +79,6 @@ const WordGuessGame = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, currentWord]);
 
-  // [6] 정답 확인
   const checkGuess = () => {
     const userAnswer = selectedLetters.map(l => l.char).join('').toLowerCase();
     const correctAnswer = currentWord.replace(/\s/g, '').toLowerCase();
@@ -94,13 +87,12 @@ const WordGuessGame = () => {
       setMessage('정답입니다! 🎉');
       setIsCorrect(true);
       setTimeout(() => {
-        setCurrentWord(''); // 새 단어 트리거
-        setScore(prev => prev + level * 10);
+        setCurrentWord('');
+        setScore(prev => prev + (level * 10));
         setLevel(prev => prev + 1);
       }, 1500);
     } else {
       setMessage('틀렸습니다!');
-      setIsCorrect(false);
     }
   };
 
@@ -112,12 +104,6 @@ const WordGuessGame = () => {
   const handleSelectedLetterClick = (letter) => {
     setSelectedLetters(prev => prev.filter(l => l.id !== letter.id));
     setScrambledLetters(prev => [...prev, letter]);
-  };
-
-  const resetAnswer = () => {
-    const all = [...scrambledLetters, ...selectedLetters].sort((a, b) => a.id - b.id);
-    setScrambledLetters(all);
-    setSelectedLetters([]);
   };
 
   return (
@@ -135,7 +121,7 @@ const WordGuessGame = () => {
         </div>
         <div className="flex flex-wrap gap-2 justify-center mb-6 min-h-[50px]">
           {scrambledLetters.map(l => (
-            <button key={l.id} onClick={() => handleLetterClick(l)} className="w-10 h-10 bg-gray-50 border rounded-xl font-bold text-lg active:scale-95">{l.char.toUpperCase()}</button>
+            <button key={l.id} onClick={() => handleLetterClick(l)} className="w-10 h-10 bg-gray-50 border rounded-xl font-bold text-lg">{l.char.toUpperCase()}</button>
           ))}
         </div>
         <div className="min-h-[70px] bg-indigo-50 rounded-2xl flex justify-center items-center gap-2 p-3 mb-6 border-2 border-dashed border-indigo-200">
@@ -144,7 +130,11 @@ const WordGuessGame = () => {
           ))}
         </div>
         <div className="flex gap-2">
-          <button onClick={resetAnswer} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold">초기화</button>
+          <button onClick={() => {
+            const all = [...scrambledLetters, ...selectedLetters].sort((a, b) => a.id - b.id);
+            setScrambledLetters(all);
+            setSelectedLetters([]);
+          }} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold">초기화</button>
           <button onClick={checkGuess} disabled={isCorrect} className="flex-[2] bg-indigo-600 text-white py-3 rounded-xl font-bold disabled:bg-green-500">
             {isCorrect ? '정답!' : '확인'}
           </button>
