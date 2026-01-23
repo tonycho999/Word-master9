@@ -2,15 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+/* 노트북/모바일 전체 화면 강제 적용 */
+html, body, #root {
+  height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #f3f4f6;
+  background-color: #4f46e5; /* indigo-600 */
 }
-
-@keyframes pop {
-  0% { transform: scale(0.9); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
-}
-.animate-pop { animation: pop 0.2s ease-out; }
