@@ -1,53 +1,88 @@
-// 1-19 레벨: 1단어
+// 1. 단일 단어 DB (1~5Lv, 6~10Lv 교차, 30Lv~ 30%, 105Lv~ 10%)
 export const wordDatabase = [
-  { word: 'apple', category: 'Fruits' },
-  { word: 'pizza', category: 'Meals' },
-  { word: 'cake', category: 'Desserts' },
-  { word: 'coffee', category: 'Drinks' },
-  { word: 'honey', category: 'Ingredients' },
-  { word: 'cat', category: 'Pets' },
-  { word: 'lion', category: 'Wild Animals' },
-  { word: 'shark', category: 'Marine Life' },
-  { word: 'eagle', category: 'Birds' },
-  { word: 'ant', category: 'Nature' }
+  { word: 'eagle', category: 'Birds' }, { word: 'parrot', category: 'Birds' }, { word: 'penguin', category: 'Birds' },
+  { word: 'apple', category: 'Fruits' }, { word: 'banana', category: 'Fruits' }, { word: 'mango', category: 'Fruits' },
+  { word: 'mars', category: 'Space' }, { word: 'venus', category: 'Space' }, { word: 'saturn', category: 'Space' },
+  { word: 'korea', category: 'Countries' }, { word: 'france', category: 'Countries' }, { word: 'brazil', category: 'Countries' },
+  { word: 'soccer', category: 'Sports' }, { word: 'tennis', category: 'Sports' }, { word: 'golf', category: 'Sports' },
+  { word: 'doctor', category: 'Jobs' }, { word: 'pilot', category: 'Jobs' }, { word: 'chef', category: 'Jobs' },
+  { word: 'sunny', category: 'Weather' }, { word: 'rainy', category: 'Weather' }, { word: 'cloudy', category: 'Weather' },
+  { word: 'yellow', category: 'Colors' }, { word: 'purple', category: 'Colors' }, { word: 'orange', category: 'Colors' },
+  { word: 'lion', category: 'Animals' }, { word: 'tiger', category: 'Animals' }, { word: 'rabbit', category: 'Animals' },
+  { word: 'bread', category: 'Food' }, { word: 'pizza', category: 'Food' }, { word: 'pasta', category: 'Food' },
+  { word: 'heart', category: 'Body' }, { word: 'brain', category: 'Body' }, { word: 'finger', category: 'Body' },
+  { word: 'robot', category: 'Tech' }, { word: 'laptop', category: 'Tech' }, { word: 'camera', category: 'Tech' },
+  { word: 'piano', category: 'Music' }, { word: 'guitar', category: 'Music' }, { word: 'violin', category: 'Music' },
+  { word: 'action', category: 'Movie' }, { word: 'horror', category: 'Movie' }, { word: 'comedy', category: 'Movie' },
+  { word: 'chair', category: 'Furniture' }, { word: 'table', category: 'Furniture' }, { word: 'sofa', category: 'Furniture' },
+  { word: 'pencil', category: 'School' }, { word: 'eraser', category: 'School' }, { word: 'school', category: 'School' },
+  { word: 'whale', category: 'Ocean' }, { word: 'shark', category: 'Ocean' }, { word: 'shrimp', category: 'Ocean' },
+  { word: 'spider', category: 'Insects' }, { word: 'beetle', category: 'Insects' }, { word: 'butterfly', category: 'Insects' },
+  { word: 'rose', category: 'Flowers' }, { word: 'tulip', category: 'Flowers' }, { word: 'lily', category: 'Flowers' },
+  { word: 'truck', category: 'Vehicles' }, { word: 'plane', category: 'Vehicles' }, { word: 'train', category: 'Vehicles' },
+  { word: 'spoon', category: 'Kitchen' }, { word: 'knife', category: 'Kitchen' }, { word: 'plate', category: 'Kitchen' },
+  { word: 'hammer', category: 'Tools' }, { word: 'drill', category: 'Tools' }, { word: 'pliers', category: 'Tools' },
+  { word: 'shirt', category: 'Clothing' }, { word: 'pants', category: 'Clothing' }, { word: 'jacket', category: 'Clothing' },
+  { word: 'father', category: 'Family' }, { word: 'mother', category: 'Family' }, { word: 'sister', category: 'Family' },
+  { word: 'bridge', category: 'City' }, { word: 'street', category: 'City' }, { word: 'market', category: 'City' },
+  { word: 'happy', category: 'Emotions' }, { word: 'angry', category: 'Emotions' }, { word: 'lonely', category: 'Emotions' },
+  { word: 'circle', category: 'Shapes' }, { word: 'square', category: 'Shapes' }, { word: 'triangle', category: 'Shapes' },
+  { word: 'forest', category: 'Nature' }, { word: 'river', category: 'Nature' }, { word: 'valley', category: 'Nature' },
+  { word: 'doll', category: 'Toys' }, { word: 'puzzle', category: 'Toys' }, { word: 'blocks', category: 'Toys' }
 ];
 
-// 20-99 레벨: 2단어 (형용사 없이 두 단어 모두 카테고리에 부합)
+// 2. 두 단어 조합 DB (6~10Lv 교차, 11~20Lv 고정, 30Lv~ 70%, 105Lv~ 30%)
 export const twoWordDatabase = [
-  // Pets: 두 마리의 반려동물 조합
-  { word: 'cat dog', category: 'Pets' },
-  { word: 'hamster rabbit', category: 'Pets' },
-  { word: 'puppy kitten', category: 'Pets' },
-  
-  // Wild Animals: 두 마리의 야생동물 조합
-  { word: 'lion tiger', category: 'Wild Animals' },
-  { word: 'bear wolf', category: 'Wild Animals' },
-  { word: 'zebra giraffe', category: 'Wild Animals' },
-  { word: 'panda monkey', category: 'Wild Animals' },
-
-  // Marine Life: 두 마리의 바다생물 조합
-  { word: 'whale shark', category: 'Marine Life' },
-  { word: 'dolphin turtle', category: 'Marine Life' },
-  { word: 'crab shrimp', category: 'Marine Life' },
-
-  // Fruits: 두 가지 과일 조합
-  { word: 'apple banana', category: 'Fruits' },
-  { word: 'grape orange', category: 'Fruits' },
-  { word: 'mango melon', category: 'Fruits' },
-
-  // Meals: 두 가지 음식 조합
-  { word: 'pizza burger', category: 'Meals' },
-  { word: 'steak pasta', category: 'Meals' },
-  { word: 'sushi noodle', category: 'Meals' }
+  { word: 'eagle hawk', category: 'Birds' }, { word: 'swan duck', category: 'Birds' },
+  { word: 'apple grape', category: 'Fruits' }, { word: 'lemon lime', category: 'Fruits' },
+  { word: 'sun moon', category: 'Space' }, { word: 'comet star', category: 'Space' },
+  { word: 'japan china', category: 'Countries' }, { word: 'spain italy', category: 'Countries' },
+  { word: 'soccer golf', category: 'Sports' }, { word: 'boxing rugby', category: 'Sports' },
+  { word: 'doctor nurse', category: 'Jobs' }, { word: 'chef baker', category: 'Jobs' },
+  { word: 'stormy windy', category: 'Weather' }, { word: 'snowy foggy', category: 'Weather' },
+  { word: 'red blue', category: 'Colors' }, { word: 'black white', category: 'Colors' },
+  { word: 'lion tiger', category: 'Animals' }, { word: 'wolf deer', category: 'Animals' },
+  { word: 'sushi taco', category: 'Food' }, { word: 'steak curry', category: 'Food' },
+  { word: 'hand foot', category: 'Body' }, { word: 'nose mouth', category: 'Body' },
+  { word: 'drone phone', category: 'Tech' }, { word: 'mouse screen', category: 'Tech' },
+  { word: 'drum flute', category: 'Music' }, { word: 'piano cello', category: 'Music' },
+  { word: 'actor script', category: 'Movie' }, { word: 'camera light', category: 'Movie' },
+  { word: 'bed desk', category: 'Furniture' }, { word: 'shelf lamp', category: 'Furniture' },
+  { word: 'book paper', category: 'School' }, { word: 'ruler globe', category: 'School' },
+  { word: 'crab turtle', category: 'Ocean' }, { word: 'seal coral', category: 'Ocean' },
+  { word: 'ant bee', category: 'Insects' }, { word: 'fly moth', category: 'Insects' },
+  { word: 'daisy lotus', category: 'Flowers' }, { word: 'sunflower cactus', category: 'Flowers' },
+  { word: 'car boat', category: 'Vehicles' }, { word: 'bike bus', category: 'Vehicles' },
+  { word: 'fork pot', category: 'Kitchen' }, { word: 'pan bowl', category: 'Kitchen' },
+  { word: 'saw wrench', category: 'Tools' }, { word: 'screw nail', category: 'Tools' },
+  { word: 'sock belt', category: 'Clothing' }, { word: 'hat glove', category: 'Clothing' },
+  { word: 'son daughter', category: 'Family' }, { word: 'uncle aunt', category: 'Family' },
+  { word: 'park tower', category: 'City' }, { word: 'road shop', category: 'City' },
+  { word: 'sad bored', category: 'Emotions' }, { word: 'proud scared', category: 'Emotions' },
+  { word: 'star oval', category: 'Shapes' }, { word: 'heart diamond', category: 'Shapes' },
+  { word: 'mountain ocean', category: 'Nature' }, { word: 'tree grass', category: 'Nature' },
+  { word: 'yo-yo train', category: 'Toys' }, { word: 'ball marble', category: 'Toys' }
 ];
 
-// 100-200 레벨: 3단어 (세 단어 모두 해당 카테고리 명사)
+// 3. 세 단어 조합 DB (100~105Lv 고정, 105Lv~ 60%)
 export const threeWordDatabase = [
-  { word: 'lion tiger bear', category: 'Wild Animals' },
-  { word: 'cat dog rabbit', category: 'Pets' },
-  { word: 'apple banana grape', category: 'Fruits' },
-  { word: 'shark whale dolphin', category: 'Marine Life' },
-  { word: 'eagle owl parrot', category: 'Birds' },
-  { word: 'pizza burger steak', category: 'Meals' },
-  { word: 'coffee juice water', category: 'Drinks' }
+  { word: 'owl parrot swan', category: 'Birds' }, { word: 'hawk duck crow', category: 'Birds' },
+  { word: 'mango berry peach', category: 'Fruits' }, { word: 'kiwi melon plum', category: 'Fruits' },
+  { word: 'earth mars venus', category: 'Space' }, { word: 'jupiter saturn uranus', category: 'Space' },
+  { word: 'canada mexico peru', category: 'Countries' }, { word: 'india egypt greece', category: 'Countries' },
+  { word: 'tennis baseball hockey', category: 'Sports' }, { word: 'skiing skating surfing', category: 'Sports' },
+  { word: 'pilot sailor driver', category: 'Jobs' }, { word: 'singer dancer actor', category: 'Jobs' },
+  { word: 'sunny rainy snowy', category: 'Weather' }, { word: 'green yellow purple', category: 'Colors' },
+  { word: 'bear monkey zebra', category: 'Animals' }, { word: 'elephant rhino giraffe', category: 'Animals' },
+  { word: 'burger pizza pasta', category: 'Food' }, { word: 'sushi salad soup', category: 'Food' },
+  { word: 'brain heart liver', category: 'Body' }, { word: 'eye ear neck', category: 'Body' },
+  { word: 'laptop robot drone', category: 'Tech' }, { word: 'guitar violin flute', category: 'Music' },
+  { word: 'sofa table chair', category: 'Furniture' }, { word: 'pencil eraser ruler', category: 'School' },
+  { word: 'whale shark dolphin', category: 'Ocean' }, { word: 'spider beetle ant', category: 'Insects' },
+  { word: 'rose tulip lily', category: 'Flowers' }, { word: 'truck train plane', category: 'Vehicles' },
+  { word: 'spoon knife fork', category: 'Kitchen' }, { word: 'hammer drill saw', category: 'Tools' },
+  { word: 'shirt pants jacket', category: 'Clothing' }, { word: 'father mother sister', category: 'Family' },
+  { word: 'bridge street market', category: 'City' }, { word: 'happy angry lonely', category: 'Emotions' },
+  { word: 'circle square triangle', category: 'Shapes' }, { word: 'forest river valley', category: 'Nature' },
+  { word: 'doll puzzle blocks', category: 'Toys' }
 ];
