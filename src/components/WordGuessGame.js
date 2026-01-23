@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// 빌드 에러의 원인이었던 'Download'를 제거했습니다.
 import { Trophy, Lightbulb, RotateCcw, Sparkles, X, Delete, ArrowRight } from 'lucide-react';
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
 
 const WordGuessGame = () => {
-  // --- 상태 관리 및 로컬 저장소 동기화 ---
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => {
     const savedScore = localStorage.getItem('word-game-score');
@@ -45,7 +43,6 @@ const WordGuessGame = () => {
     localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
   }, [level, score, usedWordIds, currentWord, category, scrambledLetters]);
 
-  // --- 단어 로드 로직 ---
   const loadNewWord = useCallback(() => {
     let db = level <= 19 ? wordDatabase : level <= 99 ? twoWordDatabase : threeWordDatabase;
     const dbPrefix = level <= 19 ? 'LV1' : level <= 99 ? 'LV2' : 'LV3';
@@ -85,7 +82,6 @@ const WordGuessGame = () => {
     if (!currentWord) loadNewWord();
   }, [currentWord, loadNewWord]);
 
-  // --- 정답 판정 ---
   useEffect(() => {
     if (selectedLetters.length === 0 || !currentWord || isCorrect) return;
     const userAll = selectedLetters.map(l => l.char).join('').toLowerCase();
@@ -110,7 +106,6 @@ const WordGuessGame = () => {
     const lastLetter = selectedLetters[selectedLetters.length - 1];
     setSelectedLetters(prev => prev.slice(0, -1));
     setScrambledLetters(prev => [...prev, lastLetter]);
-    setMessage('');
   };
 
   const renderFreeOrderWords = () => {
@@ -137,10 +132,10 @@ const WordGuessGame = () => {
       const displayLetters = isWordCorrect ? matchedWords[idx].letters : unmatchedLetters.splice(0, target.length);
 
       return (
-        <div key={`row-${idx}`} className="flex flex-col items-center mb-6 last:mb-0 w-full">
+        <div key={`row-${idx}`} className="flex flex-col items-center mb-6 w-full">
           <div className="flex gap-2 items-center flex-wrap justify-center min-h-[48px]">
             {displayLetters.map((l) => (
-              <span key={l.id} className={`font-black ${isWordCorrect ? 'text-green-500 scale-110 transition-transform' : 'text-indigo-600'} ${target.length > 8 ? 'text-3xl' : 'text-4xl'}`}>
+              <span key={l.id} className={`font-black ${isWordCorrect ? 'text-green-500 scale-110' : 'text-indigo-600'} text-4xl`}>
                 {l.char.toUpperCase()}
               </span>
             ))}
@@ -153,7 +148,6 @@ const WordGuessGame = () => {
 
   return (
     <div className="w-full min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-4">
-      
       {/* 설치 가이드 모달 */}
       {showInstallGuide && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-6">
@@ -161,20 +155,13 @@ const WordGuessGame = () => {
             <button onClick={() => setShowInstallGuide(false)} className="absolute top-5 right-5 text-gray-400"><X size={28} /></button>
             <h3 className="text-2xl font-black mb-4 text-indigo-900 uppercase">App Installation</h3>
             <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">홈 화면에 추가하여 더 빠르게 게임을 시작하세요!</p>
-            <button 
-              onClick={() => { localStorage.setItem('install-guide-seen', 'true'); setShowInstallGuide(false); }} 
-              className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg"
-            >
-              확인했습니다
-            </button>
+            <button onClick={() => { localStorage.setItem('install-guide-seen', 'true'); setShowInstallGuide(false); }} className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl">확인했습니다</button>
           </div>
         </div>
       )}
 
-      {/* 메인 게임 카드 */}
-      <div className="bg-white p-6 sm:p-10 rounded-[3rem] shadow-2xl w-full max-w-md flex flex-col items-stretch transition-all">
-        
-        {/* 상단바 */}
+      {/* 게임 카드 - 노트북 레이아웃 깨짐 방지를 위한 고정 너비 및 중앙 정렬 */}
+      <div className="bg-white p-6 sm:p-10 rounded-[3rem] shadow-2xl w-full max-w-md flex flex-col items-stretch mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2 font-black text-indigo-600 uppercase text-lg">
             <Sparkles size={20} className="text-yellow-400" /> Level {level}
@@ -184,7 +171,6 @@ const WordGuessGame = () => {
           </div>
         </div>
 
-        {/* 문제 정보 */}
         <div className="text-center mb-8">
           <h2 className="text-3xl font-black uppercase mb-2 text-gray-900 leading-none">{category}</h2>
           <span className="text-[12px] font-black text-white bg-indigo-500 px-5 py-1.5 rounded-full inline-block mb-6 shadow-md">
@@ -199,73 +185,42 @@ const WordGuessGame = () => {
               <RotateCcw size={16} className="inline mr-2 text-gray-400"/>SHUFFLE
             </button>
           </div>
-          {showHint && (
-            <div className="mt-5 p-4 bg-yellow-50 rounded-2xl border border-yellow-100 text-xs text-indigo-700 font-bold animate-pulse">
-              HINT: {targetWords.map(w => w[0].toUpperCase() + "...").join(", ")}
-            </div>
-          )}
         </div>
 
-        {/* 글자 버튼 영역 */}
         <div className="flex flex-wrap gap-3 justify-center mb-10 min-h-[64px]">
           {scrambledLetters.map(l => (
-            <button 
-              key={l.id} 
-              onClick={() => {
-                if (isCorrect) return;
-                setScrambledLetters(prev => prev.filter(i => i.id !== l.id));
-                setSelectedLetters(prev => [...prev, l]);
-                setMessage('');
-              }} 
-              className="w-12 h-12 sm:w-14 sm:h-14 bg-white border-2 border-gray-100 rounded-2xl font-black text-xl shadow-md active:scale-90 transition-all hover:border-indigo-400"
-            >
+            <button key={l.id} onClick={() => {
+              if (isCorrect) return;
+              setScrambledLetters(prev => prev.filter(i => i.id !== l.id));
+              setSelectedLetters(prev => [...prev, l]);
+            }} className="w-12 h-12 sm:w-14 sm:h-14 bg-white border-2 border-gray-100 rounded-2xl font-black text-xl shadow-md active:scale-90 transition-all hover:border-indigo-400">
               {l.char.toUpperCase()}
             </button>
           ))}
         </div>
 
-        {/* 답변 영역 */}
         <div className="min-h-[220px] bg-indigo-50 rounded-[2.5rem] flex flex-col justify-center items-center p-8 mb-10 border-2 border-dashed border-indigo-100 shadow-inner">
           {selectedLetters.length === 0 ? (
-            <span className="text-indigo-200 text-sm font-black uppercase tracking-[0.2em] text-center">Touch Letters</span>
+            <span className="text-indigo-200 text-sm font-black uppercase tracking-widest text-center">Touch Letters</span>
           ) : (
             <div className="w-full">{renderFreeOrderWords()}</div>
           )}
         </div>
 
-        {/* 하단 제어 버튼 */}
         <div className="min-h-[80px]">
           {isCorrect ? (
-            <button 
-              onClick={goToNextLevel} 
-              className="w-full bg-green-500 text-white py-6 rounded-[2rem] font-black text-2xl shadow-xl flex items-center justify-center gap-3 animate-bounce"
-            >
+            <button onClick={goToNextLevel} className="w-full bg-green-500 text-white py-6 rounded-[2rem] font-black text-2xl shadow-xl flex items-center justify-center gap-3 animate-bounce">
               NEXT LEVEL <ArrowRight size={32} />
             </button>
           ) : (
             <div className="flex gap-4">
-              <button 
-                onClick={() => {
-                  setScrambledLetters(prev => [...prev, ...selectedLetters]);
-                  setSelectedLetters([]);
-                  setMessage('');
-                }} 
-                className="flex-1 bg-gray-50 py-6 rounded-[2rem] font-black text-gray-400 uppercase text-sm border-2 border-gray-100"
-              >
-                Reset
-              </button>
-              <button 
-                onClick={removeLastLetter} 
-                disabled={selectedLetters.length === 0} 
-                className="flex-[2] bg-indigo-600 text-white py-6 rounded-[2rem] font-black text-lg sm:text-2xl shadow-xl active:bg-indigo-700 disabled:bg-indigo-300 flex items-center justify-center gap-3"
-              >
+              <button onClick={() => { setScrambledLetters(prev => [...prev, ...selectedLetters]); setSelectedLetters([]); }} className="flex-1 bg-gray-50 py-6 rounded-[2rem] font-black text-gray-400 uppercase text-sm border-2 border-gray-100">Reset</button>
+              <button onClick={removeLastLetter} disabled={selectedLetters.length === 0} className="flex-[2] bg-indigo-600 text-white py-6 rounded-[2rem] font-black text-2xl shadow-xl flex items-center justify-center gap-3">
                 <Delete size={28} /> Backspace
               </button>
             </div>
           )}
         </div>
-        
-        {message && <div className="mt-8 text-center font-black text-indigo-600 tracking-[0.3em] uppercase text-sm animate-pulse">{message}</div>}
       </div>
     </div>
   );
