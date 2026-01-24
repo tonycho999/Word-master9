@@ -6,6 +6,8 @@ const WordGuessGame = () => {
   // --- 1. 상태 및 Refs ---
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => Number(localStorage.getItem('word-game-score')) || 300);
+  
+  // 사용한 단어 리스트를 로컬 스토리지에서 완벽히 로드
   const [usedWordIds, setUsedWordIds] = useState(() => {
     try {
       const saved = localStorage.getItem('word-game-used-ids');
@@ -37,7 +39,7 @@ const WordGuessGame = () => {
   const matchedWordsRef = useRef(new Set());
   const audioCtxRef = useRef(null);
 
-  // --- 2. 데이터 영구 저장 ---
+  // --- 2. 데이터 영구 저장 (usedWordIds 포함) ---
   useEffect(() => {
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
@@ -58,12 +60,9 @@ const WordGuessGame = () => {
       }
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') await ctx.resume();
-
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
+      osc.connect(gain); gain.connect(ctx.destination);
       if (type === 'click') {
         osc.frequency.setValueAtTime(800, ctx.currentTime);
         gain.gain.setValueAtTime(0.1, ctx.currentTime);
@@ -98,12 +97,27 @@ const WordGuessGame = () => {
     } catch (e) { console.warn('Audio failed', e); }
   }, []);
 
-  // --- 4. 단어 로드 ---
+  // --- 4. 단어 로드 (중복 체크 강화 버전) ---
   const loadNewWord = useCallback(() => {
+    // 레벨에 따라 사용할 DB 결정
     let db = level <= 5 ? wordDatabase : (level <= 15 ? twoWordDatabase : threeWordDatabase);
+    
+    // 사용하지 않은 단어들만 필터링
+    let available = db.filter(item => !usedWordIds.includes(item.word));
+
+    // 만약 현재 난이도의 모든 단어를 다 썼다면 초기화 (또는 다른 DB 탐색)
+    if (available.length === 0) {
+      console.log("All words in this tier used. Resetting history for this tier.");
+      // 해당 난이도 단어들만 사용 기록에서 제거하거나, 전체 리셋
+      setUsedWordIds(prev => prev.filter(id => !db.map(d => d.word).includes(id)));
+      available = db;
+    }
+
     const preferPhrase = Math.random() < 0.5;
-    let filtered = db.filter(i => !usedWordIds.includes(i.word) && (level <= 5 ? true : i.type === (preferPhrase ? 'Phrase' : 'Normal')));
-    if (filtered.length === 0) filtered = db;
+    let filtered = available.filter(i => (level <= 5 ? true : i.type === (preferPhrase ? 'Phrase' : 'Normal')));
+    
+    // 확률 필터링 후 없을 경우 다시 available에서 무작위 선택
+    if (filtered.length === 0) filtered = available;
 
     const sel = filtered[Math.floor(Math.random() * filtered.length)];
     const chars = sel.word.replace(/\s/g, '').split('').map((char, i) => ({ 
@@ -127,7 +141,6 @@ const WordGuessGame = () => {
   const handleHint = () => {
     playSound('click');
     if (isCorrect || hintLevel >= 2) return;
-
     if (hintLevel === 0 && score >= 100) {
       setScore(s => s - 100); setHintLevel(1);
     } else if (hintLevel === 1 && score >= 200) {
@@ -221,8 +234,14 @@ const WordGuessGame = () => {
   }, [allMatched, isCorrect, currentWord, playSound]);
 
   const processNextLevel = () => {
-    playSound('click'); setScore(s => s + 50); setLevel(l => l + 1);
-    setUsedWordIds(p => [...p, currentWord]); setCurrentWord('');
+    playSound('click');
+    // 사용한 단어 목록에 현재 단어 추가
+    const newUsedWords = [...usedWordIds, currentWord];
+    setUsedWordIds(newUsedWords);
+    
+    setScore(s => s + 50);
+    setLevel(l => l + 1);
+    setCurrentWord(''); // 새로운 단어를 불러오도록 유도
   };
 
   return (
@@ -242,16 +261,10 @@ const WordGuessGame = () => {
           {hintDisplay && <div className="text-indigo-500 font-bold text-xs animate-pulse h-4">{hintDisplay}</div>}
         </div>
 
-        {/* --- 버튼 섹션 --- */}
         <div className="w-full space-y-2 mb-6">
           <div className="flex gap-2 w-full">
-            <button 
-              onClick={handleHint} 
-              disabled={isCorrect || hintLevel >= 2} 
-              className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm disabled:opacity-40"
-            >
-              <Lightbulb size={12}/> 
-              {hintLevel === 0 ? 'Hint 1 (-100P)' : hintLevel === 1 ? 'Hint 2 (-200P)' : 'No More Hints'}
+            <button onClick={handleHint} disabled={isCorrect || hintLevel >= 2} className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm disabled:opacity-40">
+              <Lightbulb size={12}/> {hintLevel === 0 ? 'Hint 1' : hintLevel === 1 ? 'Hint 2' : 'No More'}
             </button>
             <button onClick={() => { playSound('click'); setScrambledLetters(p => [...p].sort(() => Math.random() - 0.5)); }} className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm">
               <RotateCcw size={12}/> Shuffle
