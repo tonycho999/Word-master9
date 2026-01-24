@@ -3,7 +3,7 @@ import { Trophy, Delete, ArrowRight, Lightbulb, RotateCcw, PlayCircle, X } from 
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
 
 const WordGuessGame = () => {
-  // --- 1. 상태 관리 (State) ---
+  // --- 1. 상태 관리 ---
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => Number(localStorage.getItem('word-game-score')) || 300);
   const [usedWordIds, setUsedWordIds] = useState(() => {
@@ -23,10 +23,9 @@ const WordGuessGame = () => {
   const [isAdLoading, setIsAdLoading] = useState(false);
   const [showInterstitial, setShowInterstitial] = useState(false);
 
-  // 단어 완성 소리 중복 방지용 레퍼런스
   const matchedWordsRef = useRef(new Set());
 
-  // --- 2. 로컬 스토리지 동기화 ---
+  // --- 2. 로컬 스토리지 저장 ---
   useEffect(() => {
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
@@ -40,7 +39,6 @@ const WordGuessGame = () => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
-
       if (type === 'click') {
         osc.frequency.setValueAtTime(800, ctx.currentTime);
         gain.gain.setValueAtTime(0.1, ctx.currentTime);
@@ -59,7 +57,7 @@ const WordGuessGame = () => {
     } catch (e) { console.log('Audio error'); }
   };
 
-  // --- 4. 단어 로드 로직 ---
+  // --- 4. 단어 로드 ---
   const loadNewWord = useCallback(() => {
     let db = level <= 5 ? wordDatabase : (level <= 15 ? twoWordDatabase : threeWordDatabase);
     const preferPhrase = Math.random() < 0.5;
@@ -84,12 +82,44 @@ const WordGuessGame = () => {
 
   useEffect(() => { if (!currentWord) loadNewWord(); }, [currentWord, loadNewWord]);
 
-  // --- 5. 실시간 매칭 및 UI 계산 (wordCount 포함) ---
+  // --- 5. 힌트 핸들러 (수정됨) ---
+  const handleHint = () => {
+    playSound('click');
+    if (score < 100 || isCorrect || hintLevel > 0) return;
+
+    // 공백을 제외한 첫 글자 추출
+    const targetChar = currentWord.replace(/\s/g, '').charAt(0).toUpperCase();
+    
+    // 현재 선택된 글자들 중 첫 글자가 이미 올바르게 들어가 있는지 확인
+    const alreadySelectedFirst = selectedLetters.length > 0 && selectedLetters[0].char.toUpperCase() === targetChar;
+
+    if (!alreadySelectedFirst) {
+      // 1. 점수 차감
+      setScore(s => s - 100);
+      setHintLevel(1);
+
+      // 2. 섞인 글자들 중에서 해당 글자 찾기
+      const hintIdx = scrambledLetters.findIndex(l => l.char.toUpperCase() === targetChar);
+      
+      if (hintIdx !== -1) {
+        const hintLetter = scrambledLetters[hintIdx];
+        // 3. 선택 목록에 추가하고 섞인 목록에서 제거
+        setSelectedLetters(p => [hintLetter, ...p]); // 맨 앞에 추가
+        setScrambledLetters(p => p.filter((_, idx) => idx !== hintIdx));
+      } else {
+        // 만약 이미 선택한 글자들 중에 첫 글자가 잘못된 위치에 있다면?
+        // 유저 편의를 위해 일단 점수만 차감하고 힌트 활성화 표시만 할 수도 있음
+        setMessage("이미 사용 중인 글자입니다!");
+        setTimeout(() => setMessage(''), 2000);
+      }
+    }
+  };
+
+  // --- 6. 실시간 로직 ---
   const targetWords = useMemo(() => 
     currentWord.toLowerCase().split(/\s+/).filter(w => w.length > 0)
   , [currentWord]);
 
-  // 빌드 에러 해결: wordCount를 return 문 밖에서 미리 선언
   const wordCount = targetWords.length;
 
   const { renderedComponents, allMatched } = useMemo(() => {
@@ -151,7 +181,6 @@ const WordGuessGame = () => {
     }
   }, [allMatched, isCorrect, currentWord]);
 
-  // --- 6. 핸들러 ---
   const processNextLevel = () => {
     playSound('click');
     setScore(s => s + 50);
@@ -159,19 +188,6 @@ const WordGuessGame = () => {
     setUsedWordIds(p => [...p, currentWord]);
     setCurrentWord('');
     setShowInterstitial(false);
-  };
-
-  const handleHint = () => {
-    playSound('click');
-    if (score < 100) return;
-    setScore(s => s - 100);
-    setHintLevel(1);
-    const firstChar = currentWord.replace(/\s/g, '')[0].toUpperCase();
-    const hintLetter = scrambledLetters.find(l => l.char.toUpperCase() === firstChar);
-    if (hintLetter) {
-      setSelectedLetters(p => [...p, hintLetter]);
-      setScrambledLetters(p => p.filter(l => l.id !== hintLetter.id));
-    }
   };
 
   return (
@@ -192,24 +208,20 @@ const WordGuessGame = () => {
 
         <div className="text-center mb-8">
           <div className="flex gap-2 justify-center mb-2">
-            <span className="bg-indigo-100 text-indigo-600 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
-              {wordCount} {wordCount > 1 ? 'Words' : 'Word'}
-            </span>
-            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${wordType === 'Phrase' ? 'bg-pink-100 text-pink-600' : 'bg-green-100 text-green-600'}`}>
-              {wordType === 'Phrase' ? 'Phrase' : 'Normal'}
-            </span>
+            <span className="bg-indigo-100 text-indigo-600 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">{wordCount} {wordCount > 1 ? 'Words' : 'Word'}</span>
+            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${wordType === 'Phrase' ? 'bg-pink-100 text-pink-600' : 'bg-green-100 text-green-600'}`}>{wordType}</span>
           </div>
           <h2 className="text-4xl font-black text-gray-900 tracking-tight uppercase leading-none">{category}</h2>
         </div>
 
         <div className="flex gap-2 mb-8">
-          <button onClick={handleHint} disabled={score < 100 || hintLevel > 0 || isCorrect} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-black flex items-center gap-1 uppercase hover:bg-yellow-50 active:scale-95">
+          <button onClick={handleHint} disabled={score < 100 || hintLevel > 0 || isCorrect} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-black flex items-center gap-1 uppercase active:scale-95 shadow-sm disabled:opacity-50">
             <Lightbulb size={12}/> Hint (-100P)
           </button>
-          <button onClick={() => { playSound('click'); setScrambledLetters(p => [...p].sort(() => Math.random() - 0.5)); }} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-black flex items-center gap-1 uppercase active:scale-95">
+          <button onClick={() => { playSound('click'); setScrambledLetters(p => [...p].sort(() => Math.random() - 0.5)); }} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-black flex items-center gap-1 uppercase active:scale-95 shadow-sm">
             <RotateCcw size={12}/> Shuffle
           </button>
-          <button onClick={() => { playSound('click'); setIsAdLoading(true); setMessage('Loading Ad...'); setTimeout(() => { setScore(s => s + 200); setIsAdLoading(false); playSound('allSuccess'); setMessage('200P Reward! 🎁'); setTimeout(()=>setMessage(''), 2000); }, 3000); }} className="px-4 py-2 bg-amber-400 text-white rounded-full text-[10px] font-black flex items-center gap-1 active:scale-95 shadow-md">
+          <button onClick={() => { playSound('click'); setIsAdLoading(true); setTimeout(() => { setScore(s => s + 200); setIsAdLoading(false); playSound('allSuccess'); }, 3000); }} className="px-4 py-2 bg-amber-400 text-white rounded-full text-[10px] font-black flex items-center gap-1 active:scale-95 shadow-md">
             <PlayCircle size={12}/> {isAdLoading ? '...' : '+200P'}
           </button>
         </div>
@@ -228,7 +240,7 @@ const WordGuessGame = () => {
           ) : (
             <div className="w-full">{renderedComponents}</div>
           )}
-          {isCorrect && <div className="text-green-500 font-black mt-4 text-xs tracking-widest animate-bounce">{message}</div>}
+          {(isCorrect || message) && <div className="text-green-500 font-black mt-4 text-xs tracking-widest animate-bounce">{message || 'GREAT! 🎉'}</div>}
         </div>
 
         <div className="w-full">
