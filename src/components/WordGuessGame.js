@@ -3,20 +3,33 @@ import { Trophy, Delete, ArrowRight, Lightbulb, RotateCcw, PlayCircle, X } from 
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
 
 const WordGuessGame = () => {
-  // --- 1. 상태 관리 ---
+  // --- 1. 상태 관리 (로컬 스토리지 연동) ---
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => Number(localStorage.getItem('word-game-score')) || 300);
   const [usedWordIds, setUsedWordIds] = useState(() => {
-    const saved = localStorage.getItem('word-game-used-ids');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('word-game-used-ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
-  
-  const [currentWord, setCurrentWord] = useState('');
-  const [category, setCategory] = useState('');
-  const [wordType, setWordType] = useState('Normal'); 
-  const [scrambledLetters, setScrambledLetters] = useState([]);
-  const [selectedLetters, setSelectedLetters] = useState([]);
-  
+
+  // 게임 진행 상황 저장용 상태들
+  const [currentWord, setCurrentWord] = useState(() => localStorage.getItem('word-game-current-word') || '');
+  const [category, setCategory] = useState(() => localStorage.getItem('word-game-category') || '');
+  const [wordType, setWordType] = useState(() => localStorage.getItem('word-game-word-type') || 'Normal');
+  const [scrambledLetters, setScrambledLetters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('word-game-scrambled');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [selectedLetters, setSelectedLetters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('word-game-selected');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
   const [isCorrect, setIsCorrect] = useState(false);
   const [hintLevel, setHintLevel] = useState(0);
   const [message, setMessage] = useState('');
@@ -25,12 +38,17 @@ const WordGuessGame = () => {
 
   const matchedWordsRef = useRef(new Set());
 
-  // --- 2. 로컬 스토리지 저장 ---
+  // --- 2. 데이터 영구 저장 (새로고침 대응) ---
   useEffect(() => {
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
     localStorage.setItem('word-game-used-ids', JSON.stringify(usedWordIds));
-  }, [level, score, usedWordIds]);
+    localStorage.setItem('word-game-current-word', currentWord);
+    localStorage.setItem('word-game-category', category);
+    localStorage.setItem('word-game-word-type', wordType);
+    localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
+    localStorage.setItem('word-game-selected', JSON.stringify(selectedLetters));
+  }, [level, score, usedWordIds, currentWord, category, wordType, scrambledLetters, selectedLetters]);
 
   // --- 3. 효과음 엔진 ---
   const playSound = (type) => {
@@ -54,7 +72,7 @@ const WordGuessGame = () => {
           o.frequency.value = f; o.start(ctx.currentTime + i*0.08); o.stop(ctx.currentTime + 0.4);
         });
       }
-    } catch (e) { console.log('Audio error'); }
+    } catch (e) {}
   };
 
   // --- 4. 단어 로드 ---
@@ -82,36 +100,29 @@ const WordGuessGame = () => {
 
   useEffect(() => { if (!currentWord) loadNewWord(); }, [currentWord, loadNewWord]);
 
-  // --- 5. 힌트 핸들러 (수정됨) ---
+  // --- 5. 힌트 기능 (확실한 복구) ---
   const handleHint = () => {
     playSound('click');
     if (score < 100 || isCorrect || hintLevel > 0) return;
 
-    // 공백을 제외한 첫 글자 추출
+    // 공백 무시한 진짜 첫 글자 찾기
     const targetChar = currentWord.replace(/\s/g, '').charAt(0).toUpperCase();
     
-    // 현재 선택된 글자들 중 첫 글자가 이미 올바르게 들어가 있는지 확인
-    const alreadySelectedFirst = selectedLetters.length > 0 && selectedLetters[0].char.toUpperCase() === targetChar;
+    // 섞여있는 글자들 중에서 해당 글자 객체 찾기
+    const foundIdx = scrambledLetters.findIndex(l => l.char.toUpperCase() === targetChar);
 
-    if (!alreadySelectedFirst) {
-      // 1. 점수 차감
+    if (foundIdx !== -1) {
+      const hintLetter = scrambledLetters[foundIdx];
       setScore(s => s - 100);
       setHintLevel(1);
-
-      // 2. 섞인 글자들 중에서 해당 글자 찾기
-      const hintIdx = scrambledLetters.findIndex(l => l.char.toUpperCase() === targetChar);
       
-      if (hintIdx !== -1) {
-        const hintLetter = scrambledLetters[hintIdx];
-        // 3. 선택 목록에 추가하고 섞인 목록에서 제거
-        setSelectedLetters(p => [hintLetter, ...p]); // 맨 앞에 추가
-        setScrambledLetters(p => p.filter((_, idx) => idx !== hintIdx));
-      } else {
-        // 만약 이미 선택한 글자들 중에 첫 글자가 잘못된 위치에 있다면?
-        // 유저 편의를 위해 일단 점수만 차감하고 힌트 활성화 표시만 할 수도 있음
-        setMessage("이미 사용 중인 글자입니다!");
-        setTimeout(() => setMessage(''), 2000);
-      }
+      // 글자 이동: scrambled -> selected
+      setScrambledLetters(prev => prev.filter((_, idx) => idx !== foundIdx));
+      setSelectedLetters(prev => [...prev, hintLetter]);
+    } else {
+      // 이미 유저가 첫 글자를 직접 골랐을 경우
+      setMessage("첫 글자가 이미 선택되었습니다!");
+      setTimeout(() => setMessage(''), 2000);
     }
   };
 
@@ -151,7 +162,6 @@ const WordGuessGame = () => {
     const components = wordResults.map((res, idx) => {
       const isWordMatch = res.matchInfo !== null;
       const displayLetters = isWordMatch ? res.matchInfo.letters : unmatchedLetters.splice(0, res.target.length);
-      
       return (
         <div key={`word-${idx}`} className="flex flex-col items-center mb-4 last:mb-0">
           <div className="flex gap-1 items-center flex-wrap justify-center min-h-[40px]">
@@ -187,22 +197,13 @@ const WordGuessGame = () => {
     setLevel(l => l + 1);
     setUsedWordIds(p => [...p, currentWord]);
     setCurrentWord('');
-    setShowInterstitial(false);
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4 font-sans relative">
-      {showInterstitial && (
-        <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center p-10 text-white text-center">
-          <button onClick={processNextLevel} className="absolute top-10 right-10"><X size={40}/></button>
-          <div className="text-xl font-bold mb-4 opacity-50 uppercase tracking-widest">Ad Break</div>
-          <button onClick={processNextLevel} className="bg-white text-black px-12 py-4 rounded-full font-black text-xl">SKIP AD</button>
-        </div>
-      )}
-
       <div className="bg-white rounded-[2.5rem] p-6 sm:p-10 w-full max-w-md shadow-2xl flex flex-col items-center border-t-8 border-indigo-500 mx-auto">
         <div className="w-full flex justify-between items-center mb-6 font-black text-indigo-600">
-          <span className="text-lg uppercase">LV {level}</span>
+          <span className="text-lg">LV {level}</span>
           <span className="flex items-center gap-1 text-gray-700"><Trophy size={18} className="text-yellow-500"/> {score}</span>
         </div>
 
@@ -215,7 +216,7 @@ const WordGuessGame = () => {
         </div>
 
         <div className="flex gap-2 mb-8">
-          <button onClick={handleHint} disabled={score < 100 || hintLevel > 0 || isCorrect} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-black flex items-center gap-1 uppercase active:scale-95 shadow-sm disabled:opacity-50">
+          <button onClick={handleHint} disabled={score < 100 || hintLevel > 0 || isCorrect} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-black flex items-center gap-1 uppercase active:scale-95 shadow-sm">
             <Lightbulb size={12}/> Hint (-100P)
           </button>
           <button onClick={() => { playSound('click'); setScrambledLetters(p => [...p].sort(() => Math.random() - 0.5)); }} className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-full text-[10px] font-black flex items-center gap-1 uppercase active:scale-95 shadow-sm">
@@ -235,22 +236,16 @@ const WordGuessGame = () => {
         </div>
 
         <div className={`w-full min-h-[160px] rounded-[2rem] flex flex-col justify-center items-center p-6 mb-8 border-2 border-dashed transition-all ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}>
-          {selectedLetters.length === 0 ? (
-            <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest animate-pulse">Select letters</span>
-          ) : (
-            <div className="w-full">{renderedComponents}</div>
-          )}
-          {(isCorrect || message) && <div className="text-green-500 font-black mt-4 text-xs tracking-widest animate-bounce">{message || 'GREAT! 🎉'}</div>}
+          {selectedLetters.length === 0 ? <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest animate-pulse">Select letters</span> : <div className="w-full">{renderedComponents}</div>}
+          {(isCorrect || message) && <div className="text-green-500 font-black mt-4 text-xs tracking-widest animate-bounce">{message || 'EXCELLENT! 🎉'}</div>}
         </div>
 
         <div className="w-full">
           {isCorrect ? (
-            <button onClick={() => level % 10 === 0 ? setShowInterstitial(true) : processNextLevel()} className="w-full bg-green-500 text-white py-5 rounded-[2rem] font-black text-2xl shadow-lg flex items-center justify-center gap-2 hover:bg-green-600 transition-all active:scale-95">
-              NEXT LEVEL <ArrowRight size={28}/>
-            </button>
+            <button onClick={processNextLevel} className="w-full bg-green-500 text-white py-5 rounded-[2rem] font-black text-2xl shadow-lg flex items-center justify-center gap-2 hover:bg-green-600 transition-all">NEXT LEVEL <ArrowRight size={28}/></button>
           ) : (
             <div className="flex gap-3">
-              <button onClick={() => { playSound('click'); setScrambledLetters(p => [...p, ...selectedLetters]); setSelectedLetters([]); }} className="flex-1 bg-gray-50 py-5 rounded-[1.5rem] font-black text-gray-400 border border-gray-100 uppercase text-[10px] active:scale-95">Reset</button>
+              <button onClick={() => { playSound('click'); setScrambledLetters(p => [...p, ...selectedLetters]); setSelectedLetters([]); }} className="flex-1 bg-gray-50 py-5 rounded-[1.5rem] font-black text-gray-400 border border-gray-100 uppercase text-[10px]">Reset</button>
               <button onClick={() => { if(selectedLetters.length > 0) { playSound('click'); const last = selectedLetters[selectedLetters.length-1]; setSelectedLetters(p => p.slice(0, -1)); setScrambledLetters(p => [...p, last]); } }} className="flex-[2] bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black text-xl flex items-center justify-center gap-2 shadow-xl active:scale-95"><Delete size={22}/> BACK</button>
             </div>
           )}
