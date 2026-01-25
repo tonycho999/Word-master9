@@ -29,7 +29,8 @@ const WordGuessGame = () => {
   });
 
   const [isCorrect, setIsCorrect] = useState(false);
-  const [hintLevel, setHintLevel] = useState(() => Number(localStorage.getItem('word-game-hint-level')) || 0);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [mistakeIndex, setMistakeIndex] = useState(-1);
   const [message, setMessage] = useState('');
   const [isAdLoading, setIsAdLoading] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -88,8 +89,7 @@ const WordGuessGame = () => {
     localStorage.setItem('word-game-word-type', wordType);
     localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
     localStorage.setItem('word-game-selected', JSON.stringify(selectedLetters));
-    localStorage.setItem('word-game-hint-level', hintLevel);
-  }, [level, score, usedWordIds, currentWord, category, wordType, scrambledLetters, selectedLetters, hintLevel]);
+  }, [level, score, usedWordIds, currentWord, category, wordType, scrambledLetters, selectedLetters]);
 
   const playSound = useCallback(async (type) => {
     try {
@@ -176,7 +176,7 @@ const WordGuessGame = () => {
     setScrambledLetters(chars);
     setSelectedLetters([]);
     setIsCorrect(false);
-    setHintLevel(0);
+    setHintsUsed(0);
     setMessage('');
     matchedWordsRef.current = new Set();
   }, [level, usedWordIds]);
@@ -185,36 +185,40 @@ const WordGuessGame = () => {
 
   const handleHint = () => {
     playSound('click');
-    if (isCorrect || hintLevel >= 2) return;
+    if (isCorrect || hintsUsed >= 5) return;
 
-    if (hintLevel === 0 && score >= 100) {
-      setScore(s => s - 100);
-      setHintLevel(1);
-      const correctChars = new Set(currentWord.replace(/\s/g, '').split(''));
-      const incorrectLetters = scrambledLetters.filter(l => !correctChars.has(l.char.toUpperCase()));
-      const lettersToRemove = incorrectLetters.slice(0, 3);
-      setScrambledLetters(prev => prev.filter(l => !lettersToRemove.find(r => r.id === l.id)));
-    } else if (hintLevel === 1 && score >= 200) {
-      setScore(s => s - 200);
-      setHintLevel(2);
-      const firstLetter = currentWord.charAt(0).toUpperCase();
-      const letterInScrambled = scrambledLetters.find(l => l.char.toUpperCase() === firstLetter);
-      if (letterInScrambled) {
-        setSelectedLetters(p => [...p, letterInScrambled]);
-        setScrambledLetters(p => p.filter(i => i.id !== letterInScrambled.id));
+    setHintsUsed(h => h + 1);
+
+    const solution = currentWord.replace(/\s/g, '');
+    const currentGuess = selectedLetters.map(l => l.char).join('');
+
+    let firstMistakeIndex = -1;
+    for (let i = 0; i < currentGuess.length; i++) {
+      if (currentGuess[i].toUpperCase() !== solution[i].toUpperCase()) {
+        firstMistakeIndex = i;
+        break;
       }
+    }
+
+    if (firstMistakeIndex !== -1) {
+      setMistakeIndex(firstMistakeIndex);
+      setTimeout(() => setMistakeIndex(-1), 500); // Shake for 0.5s
     } else {
-      setMessage("Not enough points!");
-      setTimeout(() => setMessage(''), 2000);
+      // Correct so far, so add the next letter
+      if (currentGuess.length < solution.length) {
+        const nextLetter = solution[currentGuess.length].toUpperCase();
+        const letterInScrambled = scrambledLetters.find(
+          l => l.char.toUpperCase() === nextLetter &&
+               !selectedLetters.find(s => s.id === l.id)
+        );
+        if (letterInScrambled) {
+          setSelectedLetters(p => [...p, letterInScrambled]);
+          setScrambledLetters(p => p.filter(i => i.id !== letterInScrambled.id));
+        }
+      }
     }
   };
 
-  const hintDisplay = useMemo(() => {
-    if (hintLevel === 0 || !currentWord) return null;
-    if (hintLevel === 1) return `Hint: 3 incorrect letters removed.`;
-    if (hintLevel === 2) return `Hint: First letter placed.`;
-    return null;
-  }, [hintLevel, currentWord]);
 
   const handleRewardAd = () => {
     if (adsWatched >= 10) return;
@@ -268,8 +272,13 @@ const WordGuessGame = () => {
       return (
         <div key={`word-${idx}`} className="flex flex-col items-center mb-2 last:mb-0">
           <div className="flex gap-1 items-center flex-wrap justify-center min-h-[32px]">
-            {displayLetters.map((l) => (
-              <span key={l.id} className={`text-2xl font-black transition-all ${isWordMatch ? 'text-green-500' : 'text-indigo-600'}`}>
+            {displayLetters.map((l, letterIdx) => (
+              <span
+                key={l.id}
+                className={`text-2xl font-black transition-all ${
+                  isWordMatch ? 'text-green-500' : 'text-indigo-600'
+                } ${mistakeIndex === letterIdx ? 'shake' : ''}`}
+              >
                 {l.char.toUpperCase()}
               </span>
             ))}
@@ -284,7 +293,7 @@ const WordGuessGame = () => {
       renderedComponents: components, 
       allMatched: matchedCount === targetWords.length && selectedLetters.length === currentWord.replace(/\s/g, '').length 
     };
-  }, [selectedLetters, targetWords, currentWord, playSound]);
+  }, [selectedLetters, targetWords, currentWord, playSound, mistakeIndex]);
 
   useEffect(() => {
     if (allMatched && !isCorrect && currentWord) {
@@ -298,6 +307,7 @@ const WordGuessGame = () => {
     setScore(s => s + 50);
     setLevel(l => l + 1);
     setCurrentWord('');
+    setHintsUsed(0);
   };
 
   const handleInstallClick = () => {
@@ -337,13 +347,12 @@ const WordGuessGame = () => {
             <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${wordType === 'Phrase' ? 'bg-pink-100 text-pink-600' : 'bg-green-100 text-green-600'}`}>{wordType}</span>
           </div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight uppercase mb-1">{category}</h2>
-          {hintDisplay && <div className="text-indigo-500 font-bold text-xs animate-pulse h-4">{hintDisplay}</div>}
         </div>
 
         <div className="w-full space-y-2 mb-6">
           <div className="flex gap-2 w-full">
-            <button onClick={handleHint} disabled={isCorrect || hintLevel >= 2} className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm disabled:opacity-40">
-              <Lightbulb size={12}/> {hintLevel === 0 ? 'Hint 1' : hintLevel === 1 ? 'Hint 2' : 'No More'}
+            <button onClick={handleHint} disabled={isCorrect || hintsUsed >= 5} className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm disabled:opacity-40">
+              <Lightbulb size={12}/> HINT ({5 - hintsUsed} LEFT)
             </button>
             <button onClick={() => { playSound('click'); setScrambledLetters(p => [...p].sort(() => Math.random() - 0.5)); }} className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm">
               <RotateCcw size={12}/> Shuffle
