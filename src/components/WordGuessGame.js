@@ -39,6 +39,7 @@ const WordGuessGame = () => {
   const [hintLevel, setHintLevel] = useState(() => Number(localStorage.getItem('word-game-hint-level')) || 0);
   const [message, setMessage] = useState('');
   const [isAdLoading, setIsAdLoading] = useState(false);
+  const [isHintLoading, setIsHintLoading] = useState(false);
 
   const matchedWordsRef = useRef(new Set());
   const audioCtxRef = useRef(null);
@@ -148,11 +149,22 @@ const WordGuessGame = () => {
   useEffect(() => { if (!currentWord) loadNewWord(); }, [currentWord, loadNewWord]);
 
   const handleHint = () => {
+    if (isHintLoading) return;
     playSound('click');
-    if (isCorrect || hintLevel >= 2) return;
-    if (hintLevel === 0 && score >= 100) { setScore(s => s - 100); setHintLevel(1); }
-    else if (hintLevel === 1 && score >= 200) { setScore(s => s - 200); setHintLevel(2); }
-    else { setMessage("Not enough points!"); setTimeout(() => setMessage(''), 2000); }
+    if (isCorrect || hintLevel >= 3) return;
+
+    setIsHintLoading(true);
+
+    setTimeout(() => {
+      if (score >= 100) {
+        setScore(s => s - 100);
+        setHintLevel(h => h + 1);
+      } else {
+        setMessage("Not enough points!");
+        setTimeout(() => setMessage(''), 2000);
+      }
+      setIsHintLoading(false);
+    }, 300); // 300ms 지연으로 중복 클릭 방지
   };
 
   const hintDisplay = useMemo(() => {
@@ -163,9 +175,10 @@ const WordGuessGame = () => {
       const last = word.charAt(word.length - 1).toUpperCase();
       if (hintLevel === 1) return `${first}...`;
       if (hintLevel === 2) return word.length > 1 ? `${first}...${last}` : first;
+      if (hintLevel === 3) return `(${word.length})`;
       return "";
     });
-    return `Hints: ${hintParts.join(' / ')}`;
+    return `Hint: ${hintParts.join(' / ')}`;
   }, [currentWord, hintLevel]);
 
   const handleRewardAd = () => {
@@ -262,8 +275,8 @@ const WordGuessGame = () => {
 
         <div className="w-full space-y-2 mb-6">
           <div className="flex gap-2 w-full">
-            <button onClick={handleHint} disabled={isCorrect || hintLevel >= 2} className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm disabled:opacity-40">
-              <Lightbulb size={12}/> {hintLevel === 0 ? 'Hint 1' : hintLevel === 1 ? 'Hint 2' : 'No More'}
+            <button onClick={handleHint} disabled={isCorrect || hintLevel >= 3 || isHintLoading || score < 100} className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm disabled:opacity-40">
+              <Lightbulb size={12}/> HINT {hintLevel + 1} (-100P)
             </button>
             <button onClick={() => { playSound('click'); setScrambledLetters(p => [...p].sort(() => Math.random() - 0.5)); }} className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 uppercase active:scale-95 shadow-sm">
               <RotateCcw size={12}/> Shuffle
