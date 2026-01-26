@@ -40,7 +40,11 @@ const WordGuessGame = () => {
   const [message, setMessage] = useState('');
   const [isAdLoading, setIsAdLoading] = useState(false);
   const [isHintLoading, setIsHintLoading] = useState(false);
-  const [adCooldown, setAdCooldown] = useState(0);
+  const [adCooldown, setAdCooldown] = useState(() => {
+    const adCooldownEnd = Number(localStorage.getItem('word-game-ad-cooldown') || 0);
+    const adRemaining = Math.max(0, Math.ceil((adCooldownEnd - Date.now()) / 1000));
+    return adRemaining;
+  });
   const [adsWatched, setAdsWatched] = useState(0);
 
   const matchedWordsRef = useRef(new Set());
@@ -205,8 +209,17 @@ const WordGuessGame = () => {
 
   const handleRewardAd = () => {
     if (isAdLoading || adCooldown > 0 || adsWatched >= 20) return;
-    setIsAdLoading(true);
+
     playSound('click');
+
+    // Immediately set the cooldown to hide the button
+    const cooldownEnd = Date.now() + 5 * 60 * 1000;
+    localStorage.setItem('word-game-ad-cooldown', cooldownEnd.toString());
+    setAdCooldown(300);
+
+    // Use loading state to prevent other actions while simulating the ad
+    setIsAdLoading(true);
+
     setTimeout(() => {
       setScore(s => s + 200);
       setIsAdLoading(false);
@@ -217,12 +230,8 @@ const WordGuessGame = () => {
       setAdsWatched(newAdsWatched);
       localStorage.setItem('word-game-ads-watched', newAdsWatched.toString());
 
-      const cooldownEnd = Date.now() + 5 * 60 * 1000;
-      localStorage.setItem('word-game-ad-cooldown', cooldownEnd.toString());
-      setAdCooldown(300);
-
       setTimeout(() => setMessage(''), 2000);
-    }, 2500);
+    }, 2500); // Simulate ad watch delay
   };
 
   const targetWords = useMemo(() => currentWord.toLowerCase().split(/\s+/).filter(w => w.length > 0), [currentWord]);
@@ -317,16 +326,12 @@ const WordGuessGame = () => {
               <RotateCcw size={12}/> Shuffle
             </button>
           </div>
-          <button onClick={handleRewardAd} disabled={isAdLoading || adCooldown > 0 || adsWatched >= 20} className="w-full px-4 py-2.5 bg-amber-400 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-            <PlayCircle size={14}/>
-            {isAdLoading
-              ? 'WATCHING...'
-              : adCooldown > 0
-              ? `WAIT ${Math.floor(adCooldown / 60)}:${(adCooldown % 60).toString().padStart(2, '0')}`
-              : adsWatched >= 20
-              ? `DAILY LIMIT REACHED (${adsWatched}/20)`
-              : 'GET FREE +200P'}
-          </button>
+          { (adCooldown <= 0 && adsWatched < 20) &&
+            <button onClick={handleRewardAd} disabled={isAdLoading} className="w-full px-4 py-2.5 bg-amber-400 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+              <PlayCircle size={14}/>
+              {isAdLoading ? 'WATCHING...' : 'GET FREE +200P'}
+            </button>
+          }
         </div>
 
         <div className="flex flex-wrap gap-2 justify-center mb-6 min-h-[50px]">
