@@ -1,10 +1,11 @@
 {
-  "short_name": "WordMaster",
-  "name": "Word Scramble Master",
+  "short_name": "Word-Master9",
+  "name": "Word-Master9 - Word Scramble Puzzle",
   "id": "/word-scramble-game",
   "start_url": "./",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "theme_color": "#4f46e5",
   "background_color": "#4f46e5",
   "icons": [
