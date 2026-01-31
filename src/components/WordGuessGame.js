@@ -213,12 +213,12 @@ const WordGuessGame = () => {
   // --- 렌더링 로직 ---
   const targetWords = useMemo(() => currentWord.toLowerCase().split(/\s+/).filter(w => w.length > 0), [currentWord]);
   
-  const { renderedComponents, allMatched } = useMemo(() => {
+  const { solvedComponents, inputStreamComponents, allMatched } = useMemo(() => {
     let tempSelected = [...selectedLetters];
     let matchedCount = 0;
     let usedInMatch = new Set();
 
-    const components = targetWords.map((target, idx) => {
+    const solved = targetWords.map((target, idx) => {
       let matchInfo = null;
       for (let i = 0; i <= tempSelected.length - target.length; i++) {
         const slice = tempSelected.slice(i, i + target.length);
@@ -232,26 +232,39 @@ const WordGuessGame = () => {
           break;
         }
       }
-      const isWordMatch = matchInfo !== null;
-      const display = isWordMatch ? matchInfo : selectedLetters.filter(l => !usedInMatch.has(l.id)).splice(0, target.length);
 
-      return (
-        <div key={idx} className="flex flex-col items-center mb-2">
-          <div className="flex gap-1 items-center min-h-[32px]">
-            {display.map(l => (
-              <span key={l.id} className={`text-2xl font-black ${isWordMatch ? 'text-green-500' : 'text-indigo-600'}`}>
-                {l.char.toUpperCase()}
-              </span>
-            ))}
-            {isWordMatch && <span className="text-green-500 ml-1">✓</span>}
+      if (matchInfo) {
+        return (
+          <div key={idx} className="flex flex-col items-center mb-2 w-full">
+            <div className="flex gap-1 items-center min-h-[32px]">
+              {matchInfo.map(l => (
+                <span key={l.id} className="text-2xl font-black text-green-500">
+                  {l.char.toUpperCase()}
+                </span>
+              ))}
+              <span className="text-green-500 ml-1">✓</span>
+            </div>
+            <div className="h-1 rounded-full mt-0.5 bg-green-400 w-full" />
           </div>
-          <div className={`h-1 rounded-full mt-0.5 ${isWordMatch ? 'bg-green-400 w-full' : 'bg-indigo-50 w-12'}`} />
-        </div>
-      );
+        );
+      }
+      return null;
     });
 
+    const unused = selectedLetters.filter(l => !usedInMatch.has(l.id));
+    const inputStream = (
+      <div className="flex flex-wrap justify-center gap-1 mt-2">
+        {unused.map(l => (
+          <span key={l.id} className="text-2xl font-black text-indigo-600">
+            {l.char.toUpperCase()}
+          </span>
+        ))}
+      </div>
+    );
+
     return { 
-      renderedComponents: components, 
+      solvedComponents: solved,
+      inputStreamComponents: inputStream,
       allMatched: matchedCount === targetWords.length && selectedLetters.length === currentWord.replace(/\s/g, '').length 
     };
   }, [selectedLetters, targetWords, currentWord, playSound]);
@@ -314,7 +327,14 @@ const WordGuessGame = () => {
         </div>
 
         <div className={`w-full min-h-[120px] rounded-[1.5rem] flex flex-col justify-center items-center p-4 mb-6 border-2 border-dashed ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}>
-          {selectedLetters.length === 0 ? <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest text-center">Tap letters below</span> : <div className="w-full">{renderedComponents}</div>}
+          {selectedLetters.length === 0 ? (
+            <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest text-center">Tap letters below</span>
+          ) : (
+            <div className="w-full flex flex-col items-center">
+              {solvedComponents}
+              {inputStreamComponents}
+            </div>
+          )}
           {(isCorrect || message) && <div className="text-green-500 font-black mt-2 text-xs animate-bounce">{message || 'CORRECT!'}</div>}
         </div>
 
