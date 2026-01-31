@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Trophy, Delete, ArrowRight, Lightbulb, RotateCcw, PlayCircle } from 'lucide-react';
+import { Trophy, Delete, ArrowRight, Lightbulb, RotateCcw, PlayCircle, Download } from 'lucide-react';
 import { wordDatabase, twoWordDatabase, threeWordDatabase } from '../data/wordDatabase';
 
 const fourWordDatabase = [
@@ -38,6 +38,29 @@ const WordGuessGame = () => {
   const [isCorrect, setIsCorrect] = useState(false);
   const [hintLevel, setHintLevel] = useState(() => Number(localStorage.getItem('word-game-hint-level')) || 0);
   const [message, setMessage] = useState('');
+
+  // PWA Install Prompt
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User accepted the install prompt');
+      }
+      setDeferredPrompt(null);
+    });
+  };
   
   // 광고 관련 상태
   const [isAdVisible, setIsAdVisible] = useState(true);
@@ -274,7 +297,14 @@ const WordGuessGame = () => {
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4">
       <div className="bg-white rounded-[2rem] p-6 w-full max-w-md shadow-2xl flex flex-col items-center border-t-8 border-indigo-500">
         <div className="w-full flex justify-between items-center mb-4 font-black text-indigo-600">
-          <span>LEVEL {level}</span>
+          <div className="flex items-center gap-2">
+            <span>LEVEL {level}</span>
+            {deferredPrompt && (
+              <button onClick={handleInstallClick} className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600 active:scale-95 animate-pulse" title="Install App">
+                <Download size={16} />
+              </button>
+            )}
+          </div>
           <span className="flex items-center gap-1"><Trophy size={18} className="text-yellow-500"/> {score}</span>
         </div>
 
