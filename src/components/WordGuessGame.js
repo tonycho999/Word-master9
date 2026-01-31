@@ -218,7 +218,7 @@ const WordGuessGame = () => {
     let matchedCount = 0;
     let usedInMatch = new Set();
 
-    const components = targetWords.map((target, idx) => {
+    const componentData = targetWords.map((target, idx) => {
       let matchInfo = null;
       for (let i = 0; i <= tempSelected.length - target.length; i++) {
         const slice = tempSelected.slice(i, i + target.length);
@@ -235,18 +235,32 @@ const WordGuessGame = () => {
       const isWordMatch = matchInfo !== null;
       const display = isWordMatch ? matchInfo : selectedLetters.filter(l => !usedInMatch.has(l.id)).splice(0, target.length);
 
-      return (
-        <div key={idx} className="flex flex-col items-center mb-2">
-          <div className="flex gap-1 items-center min-h-[32px]">
-            {display.map(l => (
-              <span key={l.id} className={`text-2xl font-black ${isWordMatch ? 'text-green-500' : 'text-indigo-600'}`}>
-                {l.char.toUpperCase()}
-              </span>
-            ))}
-            {isWordMatch && <span className="text-green-500 ml-1">✓</span>}
+      return {
+        isWordMatch,
+        component: (
+          <div key={idx} className="flex flex-col items-center mb-2">
+            <div className="flex gap-1 items-center min-h-[32px]">
+              {display.map(l => (
+                <span key={l.id} className={`text-2xl font-black ${isWordMatch ? 'text-green-500' : 'text-indigo-600'}`}>
+                  {l.char.toUpperCase()}
+                </span>
+              ))}
+              {isWordMatch && <span className="text-green-500 ml-1">✓</span>}
+            </div>
+            <div className={`h-1 rounded-full mt-0.5 ${isWordMatch ? 'bg-green-400 w-full' : 'bg-indigo-50 w-12'}`} />
           </div>
-          <div className={`h-1 rounded-full mt-0.5 ${isWordMatch ? 'bg-green-400 w-full' : 'bg-indigo-50 w-12'}`} />
-        </div>
+        )
+      };
+    });
+
+    const components = componentData.map((data, i) => {
+      const nextData = componentData[i + 1];
+      const shouldBreak = data.isWordMatch && nextData && nextData.isWordMatch;
+      return (
+        <React.Fragment key={i}>
+          {data.component}
+          {shouldBreak && <div className="w-full basis-full h-0"></div>}
+        </React.Fragment>
       );
     });
 
@@ -314,7 +328,7 @@ const WordGuessGame = () => {
         </div>
 
         <div className={`w-full min-h-[120px] rounded-[1.5rem] flex flex-col justify-center items-center p-4 mb-6 border-2 border-dashed ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}>
-          {selectedLetters.length === 0 ? <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest text-center">Tap letters below</span> : <div className="w-full">{renderedComponents}</div>}
+          {selectedLetters.length === 0 ? <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest text-center">Tap letters below</span> : <div className="w-full flex flex-wrap justify-center items-center gap-x-2">{renderedComponents}</div>}
           {(isCorrect || message) && <div className="text-green-500 font-black mt-2 text-xs animate-bounce">{message || 'CORRECT!'}</div>}
         </div>
 
