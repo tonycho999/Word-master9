@@ -57,9 +57,18 @@ const WordGuessGame = () => {
 
   // --- Orientation Lock ---
   useEffect(() => {
-    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-       window.screen.orientation.lock('portrait').catch(e => console.log('Orientation lock failed:', e));
-    }
+    const lockOrientation = async () => {
+      try {
+        if (window.screen && window.screen.orientation && typeof window.screen.orientation.lock === 'function') {
+           await window.screen.orientation.lock('portrait').catch(() => {
+             // Silently fail if lock is not possible or denied
+           });
+        }
+      } catch (e) {
+        // Ignore any errors accessing the API
+      }
+    };
+    lockOrientation();
   }, []);
 
   // --- Install Prompt Listener & OS/Mode Detection ---
@@ -73,13 +82,35 @@ const WordGuessGame = () => {
 
     // Detect standalone mode (App is installed)
     const checkStandalone = () => {
-      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
-                               window.navigator.standalone === true; // iOS specific
+      let isStandaloneMode = false;
+      try {
+        if (window.matchMedia) {
+           isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
+        }
+        if (window.navigator && window.navigator.standalone === true) {
+          isStandaloneMode = true;
+        }
+      } catch (e) {
+        console.error('Error checking standalone mode', e);
+      }
       setIsStandalone(isStandaloneMode);
     };
 
     checkStandalone();
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone);
+
+    let mq = null;
+    try {
+      if (window.matchMedia) {
+        mq = window.matchMedia('(display-mode: standalone)');
+        if (mq.addEventListener) {
+          mq.addEventListener('change', checkStandalone);
+        } else if (mq.addListener) {
+          mq.addListener(checkStandalone);
+        }
+      }
+    } catch (e) {
+      // Ignore matchMedia errors
+    }
 
     // Check if the event was already captured in index.html
     if (window.deferredPrompt) {
@@ -93,9 +124,16 @@ const WordGuessGame = () => {
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handler);
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
-      window.matchMedia('(display-mode: standalone)').removeEventListener('change', checkStandalone);
+      if (mq) {
+        if (mq.removeEventListener) {
+          mq.removeEventListener('change', checkStandalone);
+        } else if (mq.removeListener) {
+          mq.removeListener(checkStandalone);
+        }
+      }
     };
   }, []);
 
