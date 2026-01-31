@@ -314,7 +314,21 @@ const WordGuessGame = () => {
         </div>
 
         <div className={`w-full min-h-[120px] rounded-[1.5rem] flex flex-col justify-center items-center p-4 mb-6 border-2 border-dashed ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}>
-          {selectedLetters.length === 0 ? <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest text-center">Tap letters below</span> : <div className="w-full">{renderedComponents}</div>}
+          {selectedLetters.length === 0 ? (
+            <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest text-center">Tap letters below</span>
+          ) : (
+            allMatched ? (
+              <div className="w-full">{renderedComponents}</div>
+            ) : (
+              <div className="flex flex-wrap gap-1 justify-center items-center">
+                {selectedLetters.map((l) => (
+                  <span key={l.id} className="text-2xl font-black text-indigo-600">
+                    {l.char.toUpperCase()}
+                  </span>
+                ))}
+              </div>
+            )
+          )}
           {(isCorrect || message) && <div className="text-green-500 font-black mt-2 text-xs animate-bounce">{message || 'CORRECT!'}</div>}
         </div>
 
