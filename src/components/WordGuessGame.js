@@ -121,6 +121,20 @@ const WordGuessGame = () => {
     checkCooldown();
   }, []);
 
+  // --- 화면 방향 고정 ---
+  useEffect(() => {
+    const lockOrientation = async () => {
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+          await window.screen.orientation.lock('portrait');
+        }
+      } catch (e) {
+        // console.warn("Orientation lock not supported or failed:", e);
+      }
+    };
+    lockOrientation();
+  }, []);
+
   // --- 새로운 단어 불러오기 ---
   const loadNewWord = useCallback(() => {
     let dbPool = [];
@@ -236,7 +250,7 @@ const WordGuessGame = () => {
       const display = isWordMatch ? matchInfo : selectedLetters.filter(l => !usedInMatch.has(l.id)).splice(0, target.length);
 
       return (
-        <div key={idx} className="flex flex-col items-center mb-2">
+        <div key={idx} className="flex flex-col items-center">
           <div className="flex gap-1 items-center min-h-[32px]">
             {display.map(l => (
               <span key={l.id} className={`text-2xl font-black ${isWordMatch ? 'text-green-500' : 'text-indigo-600'}`}>
@@ -314,7 +328,7 @@ const WordGuessGame = () => {
         </div>
 
         <div className={`w-full min-h-[120px] rounded-[1.5rem] flex flex-col justify-center items-center p-4 mb-6 border-2 border-dashed ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`}>
-          {selectedLetters.length === 0 ? <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest text-center">Tap letters below</span> : <div className="w-full">{renderedComponents}</div>}
+          {selectedLetters.length === 0 ? <span className="text-gray-300 font-black uppercase text-[10px] tracking-widest text-center">Tap letters below</span> : <div className="w-full flex flex-wrap justify-center gap-2">{renderedComponents}</div>}
           {(isCorrect || message) && <div className="text-green-500 font-black mt-2 text-xs animate-bounce">{message || 'CORRECT!'}</div>}
         </div>
 
