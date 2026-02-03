@@ -220,9 +220,9 @@ const WordGuessGame = () => {
     const checkCooldown = () => {
       const now = Date.now();
       const diff = now - lastClickTime;
-      if (diff < 5 * 60 * 1000) {
+      if (diff < 10 * 60 * 1000) {
         setIsAdVisible(false);
-        setTimeout(() => setIsAdVisible(true), (5 * 60 * 1000) - diff);
+        setTimeout(() => setIsAdVisible(true), (10 * 60 * 1000) - diff);
       }
     };
     checkCooldown();
@@ -289,7 +289,7 @@ const WordGuessGame = () => {
   };
 
   const handleRewardAd = () => {
-    if (adClickCount >= 20) return;
+    if (adClickCount >= 10) return;
     playSound('click');
     setIsAdLoading(true);
     setIsAdVisible(false);
@@ -303,7 +303,7 @@ const WordGuessGame = () => {
       playSound('reward'); 
       setMessage('+200P Reward!');
       setTimeout(() => setMessage(''), 2000);
-      if (newCount < 20) setTimeout(() => setIsAdVisible(true), 5 * 60 * 1000);
+      if (newCount < 10) setTimeout(() => setIsAdVisible(true), 10 * 60 * 1000);
     }, 2500);
   };
 
@@ -429,13 +429,13 @@ const WordGuessGame = () => {
             </button>
           )}
 
-          {isAdVisible && adClickCount < 20 ? (
+          {isAdVisible && adClickCount < 10 ? (
             <button onClick={handleRewardAd} className="w-full px-4 py-2.5 bg-amber-400 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1 active:scale-95">
-              <PlayCircle size={14}/> {isAdLoading ? 'WATCHING...' : `GET FREE +200P (${adClickCount}/20)`}
+              <PlayCircle size={14}/> {isAdLoading ? 'WATCHING...' : `GET FREE +200P (${adClickCount}/10)`}
             </button>
           ) : (
             <div className="w-full py-2 text-center text-[9px] text-gray-400 font-bold italic bg-gray-50 rounded-lg">
-              {adClickCount >= 20 ? "Daily limit reached" : "Next reward in 5 mins"}
+              {adClickCount >= 10 ? "Daily limit reached" : "Next reward in 10 mins"}
             </div>
           )}
         </div>
