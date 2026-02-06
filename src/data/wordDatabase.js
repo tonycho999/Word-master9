@@ -1,10 +1,14 @@
+// ==========================================
+// 1. 단어 데이터베이스 (1단어 ~ 5단어)
+// ==========================================
+
 export const wordDatabase = [
-  // --- Animals & Nature (20) ---
+  // --- Animals & Nature ---
   { word: 'TIGER', category: 'ANIMALS', type: 'Normal' },
   { word: 'MONKEY', category: 'ANIMALS', type: 'Normal' },
   { word: 'RABBIT', category: 'ANIMALS', type: 'Normal' },
   { word: 'PANDA', category: 'ANIMALS', type: 'Normal' },
-  { word: 'ZREBA', category: 'ANIMALS', type: 'Normal' },
+  { word: 'ZEBRA', category: 'ANIMALS', type: 'Normal' }, // typo fixed
   { word: 'DESERT', category: 'NATURE', type: 'Normal' },
   { word: 'CANYON', category: 'NATURE', type: 'Normal' },
   { word: 'FOREST', category: 'NATURE', type: 'Normal' },
@@ -21,7 +25,7 @@ export const wordDatabase = [
   { word: 'PENGUIN', category: 'ANIMALS', type: 'Normal' },
   { word: 'TURTLE', category: 'ANIMALS', type: 'Normal' },
 
-  // --- Food & Drinks (20) ---
+  // --- Food & Drinks ---
   { word: 'APPLE', category: 'FRUIT', type: 'Normal' },
   { word: 'BANANA', category: 'FRUIT', type: 'Normal' },
   { word: 'CHERRY', category: 'FRUIT', type: 'Normal' },
@@ -43,7 +47,7 @@ export const wordDatabase = [
   { word: 'POTATO', category: 'VEGGIE', type: 'Normal' },
   { word: 'HONEY', category: 'SWEET', type: 'Normal' },
 
-  // --- Objects & Tech (20) ---
+  // --- Objects & Tech ---
   { word: 'CAMERA', category: 'TECH', type: 'Normal' },
   { word: 'MOBILE', category: 'TECH', type: 'Normal' },
   { word: 'LAPTOP', category: 'TECH', type: 'Normal' },
@@ -65,7 +69,7 @@ export const wordDatabase = [
   { word: 'JACKET', category: 'CLOTHES', type: 'Normal' },
   { word: 'GLOVES', category: 'CLOTHES', type: 'Normal' },
 
-  // --- Jobs & People (20) ---
+  // --- Jobs & People ---
   { word: 'DOCTOR', category: 'JOBS', type: 'Normal' },
   { word: 'NURSE', category: 'JOBS', type: 'Normal' },
   { word: 'POLICE', category: 'JOBS', type: 'Normal' },
@@ -87,7 +91,7 @@ export const wordDatabase = [
   { word: 'FRIEND', category: 'PEOPLE', type: 'Normal' },
   { word: 'PLAYER', category: 'SPORTS', type: 'Normal' },
 
-  // --- Misc & Abstract (20) ---
+  // --- Misc & Abstract ---
   { word: 'STORM', category: 'WEATHER', type: 'Normal' },
   { word: 'WINTER', category: 'WEATHER', type: 'Normal' },
   { word: 'SUMMER', category: 'WEATHER', type: 'Normal' },
@@ -111,7 +115,7 @@ export const wordDatabase = [
 ];
 
 export const twoWordDatabase = [
-  // --- Nature & Weather (20) ---
+  // --- Nature & Weather ---
   { word: 'BLUE OCEAN', category: 'NATURE', type: 'Phrase' },
   { word: 'GREEN FOREST', category: 'NATURE', type: 'Phrase' },
   { word: 'DEEP CAVE', category: 'NATURE', type: 'Phrase' },
@@ -133,7 +137,7 @@ export const twoWordDatabase = [
   { word: 'SOFT SAND', category: 'BEACH', type: 'Phrase' },
   { word: 'CALM LAKE', category: 'NATURE', type: 'Phrase' },
 
-  // --- Food & Drinks (20) ---
+  // --- Food & Drinks ---
   { word: 'HOT COFFEE', category: 'DRINKS', type: 'Phrase' },
   { word: 'ICE TEA', category: 'DRINKS', type: 'Phrase' },
   { word: 'SWEET CANDY', category: 'FOOD', type: 'Phrase' },
@@ -155,7 +159,7 @@ export const twoWordDatabase = [
   { word: 'COLD BEER', category: 'DRINKS', type: 'Phrase' },
   { word: 'QUICK SNACK', category: 'FOOD', type: 'Phrase' },
 
-  // --- Objects & Tech (20) ---
+  // --- Objects & Tech ---
   { word: 'FAST CAR', category: 'VEHICLES', type: 'Phrase' },
   { word: 'LARGE SHIP', category: 'VEHICLES', type: 'Phrase' },
   { word: 'NEW PHONE', category: 'TECH', type: 'Phrase' },
@@ -177,7 +181,7 @@ export const twoWordDatabase = [
   { word: 'SOFT PILLOW', category: 'HOME', type: 'Phrase' },
   { word: 'BRIGHT LIGHT', category: 'HOME', type: 'Phrase' },
 
-  // --- People & Life (20) ---
+  // --- People & Life ---
   { word: 'KING QUEEN', category: 'PEOPLE', type: 'Normal' },
   { word: 'BOY GIRL', category: 'PEOPLE', type: 'Normal' },
   { word: 'MOM DAD', category: 'FAMILY', type: 'Normal' },
@@ -199,7 +203,7 @@ export const twoWordDatabase = [
   { word: 'CAT DOG', category: 'PETS', type: 'Normal' },
   { word: 'BEE FLY', category: 'INSECTS', type: 'Normal' },
 
-  // --- Abstract & Action (20) ---
+  // --- Abstract & Action ---
   { word: 'UP DOWN', category: 'DIRECTION', type: 'Normal' },
   { word: 'LEFT RIGHT', category: 'DIRECTION', type: 'Normal' },
   { word: 'NORTH SOUTH', category: 'MAP', type: 'Normal' },
@@ -221,7 +225,7 @@ export const twoWordDatabase = [
   { word: 'LOVE HATE', category: 'EMOTION', type: 'Normal' },
   { word: 'WORK PLAY', category: 'LIFE', type: 'Normal' },
 
-  // --- Sports & Hobby (20) ---
+  // --- Sports & Hobby ---
   { word: 'SOCCER BALL', category: 'SPORTS', type: 'Normal' },
   { word: 'TENNIS RACKET', category: 'SPORTS', type: 'Normal' },
   { word: 'GOLF CLUB', category: 'SPORTS', type: 'Normal' },
@@ -243,13 +247,13 @@ export const twoWordDatabase = [
   { word: 'MOVIE THEATER', category: 'CITY', type: 'Normal' },
   { word: 'MUSIC CONCERT', category: 'ARTS', type: 'Normal' },
 
-  // --- Science & Space (20) ---
+  // --- Science & Space ---
   { word: 'SOLAR SYSTEM', category: 'SPACE', type: 'Normal' },
   { word: 'SPACE STATION', category: 'SPACE', type: 'Normal' },
   { word: 'BLACK HOLE', category: 'SPACE', type: 'Normal' },
   { word: 'MILKY WAY', category: 'SPACE', type: 'Normal' },
   { word: 'ROCKET SHIP', category: 'SPACE', type: 'Normal' },
-  { word: 'ALIENT LIFE', category: 'SPACE', type: 'Phrase' },
+  { word: 'ALIEN LIFE', category: 'SPACE', type: 'Phrase' }, // typo fixed
   { word: 'LAB COAT', category: 'SCIENCE', type: 'Normal' },
   { word: 'TEST TUBE', category: 'SCIENCE', type: 'Normal' },
   { word: 'CHEMICAL REACTION', category: 'SCIENCE', type: 'Normal' },
@@ -265,7 +269,7 @@ export const twoWordDatabase = [
   { word: 'GRIZZLY BEAR', category: 'ANIMALS', type: 'Normal' },
   { word: 'SEA TURTLE', category: 'ANIMALS', type: 'Normal' },
 
-  // --- Cooking & Food (20) ---
+  // --- Cooking & Food ---
   { word: 'ICE CREAM', category: 'DESSERT', type: 'Normal' },
   { word: 'POTATO CHIP', category: 'SNACK', type: 'Normal' },
   { word: 'FRYING PAN', category: 'KITCHEN', type: 'Normal' },
@@ -287,7 +291,7 @@ export const twoWordDatabase = [
   { word: 'WINE GLASS', category: 'DRINKS', type: 'Normal' },
   { word: 'WATER BOTTLE', category: 'OBJECTS', type: 'Normal' },
 
-  // --- City & Buildings (20) ---
+  // --- City & Buildings ---
   { word: 'FIRE STATION', category: 'CITY', type: 'Normal' },
   { word: 'POLICE CAR', category: 'CITY', type: 'Normal' },
   { word: 'POST OFFICE', category: 'CITY', type: 'Normal' },
@@ -309,14 +313,14 @@ export const twoWordDatabase = [
   { word: 'STREET LIGHT', category: 'CITY', type: 'Normal' },
   { word: 'TRAFFIC JAM', category: 'CITY', type: 'Normal' },
 
-  // --- Daily Life & Misc (20) ---
+  // --- Daily Life & Misc ---
   { word: 'CREDIT CARD', category: 'MONEY', type: 'Normal' },
   { word: 'PAPER MONEY', category: 'MONEY', type: 'Normal' },
   { word: 'WAKE UP', category: 'ACTION', type: 'Normal' },
   { word: 'GOOD MORNING', category: 'REPLY', type: 'Phrase' },
   { word: 'GOOD NIGHT', category: 'REPLY', type: 'Phrase' },
   { word: 'THANK YOU', category: 'REPLY', type: 'Phrase' },
-  { word: 'I LOVE YOU', category: 'EMOTION', type: 'Phrase' }, // 3단어 같지만 2단어 리스트에 포함 가능
+  { word: 'I LOVE YOU', category: 'EMOTION', type: 'Phrase' },
   { word: 'BEST FRIEND', category: 'PEOPLE', type: 'Phrase' },
   { word: 'BIRTHDAY PARTY', category: 'LIFE', type: 'Normal' },
   { word: 'WEDDING RING', category: 'LIFE', type: 'Normal' },
@@ -332,9 +336,8 @@ export const twoWordDatabase = [
   { word: 'VACUUM CLEANER', category: 'HOME', type: 'Normal' }
 ];
 
-// 3단어 데이터베이스 (실제 구문 - 150개 이상)
 export const threeWordDatabase = [
-  // --- Nature & Weather (30) ---
+  // --- Nature & Weather ---
   { word: 'BIG RED APPLE', category: 'FRUIT', type: 'Phrase' },
   { word: 'DEEP BLUE OCEAN', category: 'NATURE', type: 'Phrase' },
   { word: 'DARK NIGHT SKY', category: 'SPACE', type: 'Phrase' },
@@ -366,7 +369,7 @@ export const threeWordDatabase = [
   { word: 'FISH BIRD BEAST', category: 'ANIMALS', type: 'Normal' },
   { word: 'WOOD COAL GAS', category: 'FUEL', type: 'Normal' },
 
-  // --- Food & Lifestyle (40) ---
+  // --- Food & Lifestyle ---
   { word: 'SWEET CHOCOLATE CAKE', category: 'DESSERT', type: 'Phrase' },
   { word: 'HOT SPICY FOOD', category: 'TASTE', type: 'Phrase' },
   { word: 'THICK ICE CREAM', category: 'FOOD', type: 'Phrase' },
@@ -408,7 +411,7 @@ export const threeWordDatabase = [
   { word: 'BROWN LEATHER BELT', category: 'FASHION', type: 'Phrase' },
   { word: 'RICH GOLD WATCH', category: 'JEWELRY', type: 'Phrase' },
 
-  // --- Sports & Arts (30) ---
+  // --- Sports & Arts ---
   { word: 'BALL BAT GLOVE', category: 'BASEBALL', type: 'Normal' },
   { word: 'NET COURT BALL', category: 'TENNIS', type: 'Normal' },
   { word: 'CLUB BALL TEE', category: 'GOLF', type: 'Normal' },
@@ -440,9 +443,9 @@ export const threeWordDatabase = [
   { word: 'PRIVATE JET PLANE', category: 'VEHICLES', type: 'Phrase' },
   { word: 'LUXURY CRUISE SHIP', category: 'VEHICLES', type: 'Phrase' },
 
-  // --- Science & Tech (50) ---
+  // --- Science & Tech ---
   { word: 'ATOM CELL GENE', category: 'SCIENCE', type: 'Normal' },
-  { word: 'MATH PHYSIC CHEM', category: 'STUDY', type: 'Normal' },
+  { word: 'MATH PHYSIC CHEM', category: 'STUDY', type: 'Normal' }, // typo physics->physic for 3 words
   { word: 'BYTE BIT CHIP', category: 'TECH', type: 'Normal' },
   { word: 'WEB SITE LINK', category: 'INTERNET', type: 'Normal' },
   { word: 'FILE FOLDER DISK', category: 'TECH', type: 'Normal' },
@@ -492,7 +495,7 @@ export const threeWordDatabase = [
   { word: 'WILD JUNGLE ANIMAL', category: 'ANIMALS', type: 'Phrase' },
   { word: 'BRAVE POLICE OFFICER', category: 'JOBS', type: 'Phrase' },
 
-  // --- Abstract & Actions (50) ---
+  // --- Abstract & Actions ---
   { word: 'WIN LOSE DRAW', category: 'SPORTS', type: 'Normal' },
   { word: 'START WORK END', category: 'LIFE', type: 'Normal' },
   { word: 'WAKE UP NOW', category: 'TIME', type: 'Normal' },
@@ -545,9 +548,8 @@ export const threeWordDatabase = [
   { word: 'HELP THE PEOPLE', category: 'PEOPLE', type: 'Phrase' }
 ];
 
-// 4단어 데이터베이스 (복합 구문 - 100개 이상)
 export const fourWordDatabase = [
-  // --- Seasons & Directions & Lists (50) ---
+  // --- Seasons & Directions & Lists ---
   { word: 'SPRING SUMMER FALL WINTER', category: 'SEASONS', type: 'Normal' },
   { word: 'NORTH SOUTH EAST WEST', category: 'DIRECTION', type: 'Normal' },
   { word: 'LION TIGER BEAR WOLF', category: 'ANIMALS', type: 'Normal' },
@@ -599,7 +601,7 @@ export const fourWordDatabase = [
   { word: 'TRUE FALSE YES NO', category: 'LOGIC', type: 'Normal' },
   { word: 'START NEXT BACK END', category: 'GAME', type: 'Normal' },
 
-  // --- Detailed Descriptions (Phrase - 70) ---
+  // --- Detailed Descriptions (Phrase) ---
   { word: 'BIG RED FIRE TRUCK', category: 'VEHICLES', type: 'Phrase' },
   { word: 'DEEP BLUE OCEAN WATER', category: 'NATURE', type: 'Phrase' },
   { word: 'SMALL CUTE BABY PANDA', category: 'ANIMALS', type: 'Phrase' },
@@ -671,7 +673,7 @@ export const fourWordDatabase = [
   { word: 'CUTE COTTAGE GARDEN GATE', category: 'HOME', type: 'Phrase' },
   { word: 'HIGH SPEED RAIL ROAD', category: 'TRAVEL', type: 'Phrase' },
 
-  // --- Common Phrases & Sayings (80) ---
+  // --- Common Phrases & Sayings ---
   { word: 'TIME IS MONEY NOW', category: 'SAYING', type: 'Phrase' },
   { word: 'LOVE IS THE KEY', category: 'LIFE', type: 'Phrase' },
   { word: 'NEVER GIVE UP HOPE', category: 'LIFE', type: 'Phrase' },
@@ -752,4 +754,40 @@ export const fourWordDatabase = [
   { word: 'DANCE WITH THE MUSIC', category: 'ARTS', type: 'Phrase' },
   { word: 'PAINT THE BLUE SKY', category: 'ARTS', type: 'Phrase' },
   { word: 'WATCH THE RED SUNSET', category: 'NATURE', type: 'Phrase' }
+];
+
+// 5단어 데이터베이스 (1000레벨 이상을 위해 추가)
+export const fiveWordDatabase = [
+  { word: 'LONG TIME NO SEE YOU', category: 'GREETING', type: 'Phrase' },
+  { word: 'WHAT ARE YOU DOING NOW', category: 'QUESTION', type: 'Phrase' },
+  { word: 'PLEASE TURN OFF THE LIGHT', category: 'ACTION', type: 'Phrase' },
+  { word: 'THE QUICK BROWN FOX JUMPS', category: 'STORY', type: 'Phrase' },
+  { word: 'A FRIEND IN NEED IS', category: 'SAYING', type: 'Phrase' },
+  { word: 'HAVE A GREAT DAY AHEAD', category: 'GREETING', type: 'Phrase' },
+  { word: 'WHERE IS THE NEAREST BANK', category: 'TRAVEL', type: 'Phrase' },
+  { word: 'MAY I HELP YOU SIR', category: 'SERVICE', type: 'Phrase' },
+  { word: 'I WANT TO GO HOME', category: 'FEELING', type: 'Phrase' },
+  { word: 'LIFE IS SHORT ENJOY IT', category: 'SAYING', type: 'Phrase' },
+  { word: 'ACTION SPEAKS LOUDER THAN WORDS', category: 'SAYING', type: 'Phrase' },
+  { word: 'KEEP YOUR EYES ON PRIZE', category: 'MOTIVATION', type: 'Phrase' },
+  { word: 'LOVE IS IN THE AIR', category: 'EMOTION', type: 'Phrase' },
+  { word: 'TIME WAITS FOR NO ONE', category: 'SAYING', type: 'Phrase' },
+  { word: 'MONEY CAN NOT BUY HAPPINESS', category: 'SAYING', type: 'Phrase' }
+];
+
+
+// ==========================================
+// 2. 레벨별 확률 설정 (게임 로직용)
+// ==========================================
+// maxLevel: 해당 레벨 '이하'까지 적용
+// probs: 각 단어 개수별 확률 (%)
+export const LEVEL_CONFIG = [
+  { maxLevel: 5,    probs: { 1: 100, 2: 0, 3: 0, 4: 0, 5: 0 } },
+  { maxLevel: 10,   probs: { 1: 0, 2: 100, 3: 0, 4: 0, 5: 0 } },
+  { maxLevel: 50,   probs: { 1: 30, 2: 60, 3: 10, 4: 0, 5: 0 } },
+  { maxLevel: 99,   probs: { 1: 15, 2: 40, 3: 45, 4: 0, 5: 0 } },
+  { maxLevel: 199,  probs: { 1: 10, 2: 30, 3: 40, 4: 20, 5: 0 } },
+  { maxLevel: 499,  probs: { 1: 10, 2: 20, 3: 40, 4: 30, 5: 0 } }, // "200레벨 이상" 구간 (편의상 500 미만으로 설정)
+  { maxLevel: 999,  probs: { 1: 5, 2: 15, 3: 40, 4: 40, 5: 0 } }, // "500레벨 이상"
+  { maxLevel: 99999, probs: { 1: 0, 2: 10, 3: 50, 4: 30, 5: 10 } } // "1000레벨 이상" (최종)
 ];
