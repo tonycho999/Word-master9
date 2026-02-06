@@ -10,11 +10,11 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- 게임에서 사용할 기능들 ---
 
-// 1. [변경] 구글 대신 '이메일 로그인'으로 변경
-// (다른 파일을 안 고치기 위해 이름은 loginWithGoogle로 둡니다)
+// 1. 로그인 (이메일 매직 링크 방식)
+// *주의: 함수 이름은 다른 파일 수정을 줄이기 위해 loginWithGoogle로 유지합니다.
 export const loginWithGoogle = async () => {
   // 1. 이메일 입력받기
-  const email = window.prompt("게임을 저장할 이메일 주소를 입력해주세요:\n(로그인 링크가 전송됩니다)");
+  const email = window.prompt("Please enter your email to save progress:\n(A login link will be sent to your inbox)");
   
   if (!email) return; // 취소하면 중단
 
@@ -27,9 +27,9 @@ export const loginWithGoogle = async () => {
   });
 
   if (error) {
-    alert("에러가 발생했습니다: " + error.message);
+    alert("Error: " + error.message);
   } else {
-    alert("📩 메일함을 확인해주세요!\n보내드린 링크를 클릭하면 게임이 저장되고 이어집니다.");
+    alert("📩 Check your inbox!\nClick the link in the email to log in and save your game.");
   }
 };
 
@@ -37,27 +37,20 @@ export const loginWithGoogle = async () => {
 export const logout = async () => {
   const { error } = await supabase.auth.signOut();
   if (error) console.error('Logout Error:', error);
-  else alert("로그아웃 되었습니다.");
+  else alert("Logged out successfully.");
 };
 
-// 3. 데이터 저장 (내 레벨, 점수 저장)
+// 3. 데이터 저장 (Upsert 방식: 없으면 만들고, 있으면 덮어쓰기)
 export const saveProgress = async (userId, level, score) => {
-  const { data: existingData } = await supabase
+  // upsert는 Supabase에서 'userid'가 Unique(유일)로 설정되어 있어야 작동합니다.
+  const { error } = await supabase
     .from('game_progress')
-    .select('id')
-    .eq('userid', userId)
-    .single();
+    .upsert(
+      { userid: userId, level: level, score: score },
+      { onConflict: 'userid' } // userid가 겹치면 업데이트해라!
+    );
 
-  if (existingData) {
-    await supabase
-      .from('game_progress')
-      .update({ level: level, score: score })
-      .eq('userid', userId);
-  } else {
-    await supabase
-      .from('game_progress')
-      .insert({ userid: userId, level: level, score: score });
-  }
+  if (error) console.error('Save Error:', error);
 };
 
 // 4. 데이터 불러오기
