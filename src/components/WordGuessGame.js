@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Trophy, Delete, ArrowRight, Lightbulb, RotateCcw, PlayCircle, RefreshCcw } from 'lucide-react';
-// 데이터 파일에서 모든 DB와 설정을 가져옵니다.
+import { Trophy, Delete, ArrowRight, Lightbulb, RotateCcw, PlayCircle, RefreshCcw, LogIn, LogOut } from 'lucide-react';
+// Supabase 및 데이터 임포트
+import { supabase, loginWithGoogle, logout, saveProgress, loadProgress } from '../supabase';
 import { wordDatabase, twoWordDatabase, threeWordDatabase, fourWordDatabase, fiveWordDatabase, LEVEL_CONFIG } from '../data/wordDatabase';
 
 const WordGuessGame = () => {
   // --- 상태 관리 ---
+  const [user, setUser] = useState(null); // 로그인 유저 정보
+
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => Number(localStorage.getItem('word-game-score')) || 300);
   const [currentWord, setCurrentWord] = useState(() => localStorage.getItem('word-game-current-word') || '');
   const [category, setCategory] = useState(() => localStorage.getItem('word-game-category') || '');
-  const [wordType, setWordType] = useState(() => localStorage.getItem('word-game-word-type') || 'Normal'); // UI 표시용
+  const [wordType, setWordType] = useState(() => localStorage.getItem('word-game-word-type') || 'Normal');
   
   const [scrambledLetters, setScrambledLetters] = useState(() => {
     try { return JSON.parse(localStorage.getItem('word-game-scrambled')) || []; } catch { return []; }
@@ -21,11 +24,8 @@ const WordGuessGame = () => {
   const [isCorrect, setIsCorrect] = useState(false);
   const [hintLevel, setHintLevel] = useState(() => Number(localStorage.getItem('word-game-hint-level')) || 0);
   const [message, setMessage] = useState('');
-  
-  // 3단계 힌트용 플래시 상태
   const [isFlashing, setIsFlashing] = useState(false);
   
-  // 광고 상태
   const [isAdVisible, setIsAdVisible] = useState(true);
   const [adClickCount, setAdClickCount] = useState(0);
   const [isAdLoading, setIsAdLoading] = useState(false);
@@ -74,19 +74,78 @@ const WordGuessGame = () => {
     } catch (e) {}
   }, []);
 
-  // --- 데이터 저장 ---
+  // --- [NEW] Supabase 로그인 감지 및 데이터 로드 ---
   useEffect(() => {
+    // 1. 현재 세션 확인
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        syncData(session.user.id);
+      }
+    });
+
+    // 2. 로그인 상태 변화 감지 (로그인/로그아웃 시 자동 실행)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        syncData(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 데이터 동기화 함수
+  const syncData = async (userId) => {
+      const data = await loadProgress(userId);
+      if (data) {
+          // DB 데이터가 로컬보다 레벨이 높으면 덮어쓰기
+          const localLevel = Number(localStorage.getItem('word-game-level') || 1);
+          if (data.level > localLevel) {
+              setLevel(data.level);
+              setScore(data.score);
+              setMessage('DATA LOADED!');
+              setTimeout(() => setMessage(''), 2000);
+          }
+      }
+  };
+
+  const handleLogin = async () => {
+      playSound('click');
+      await loginWithGoogle();
+  };
+
+  const handleLogout = async () => {
+      playSound('click');
+      await logout();
+      setUser(null);
+      setMessage('LOGGED OUT');
+      setTimeout(() => setMessage(''), 1500);
+  };
+
+  // --- 데이터 저장 (로컬 + Supabase) ---
+  useEffect(() => {
+    // 1. 로컬 저장 (항상)
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
     localStorage.setItem('word-game-current-word', currentWord);
     localStorage.setItem('word-game-category', category);
-    localStorage.setItem('word-game-word-type', wordType); // 저장 복구
+    localStorage.setItem('word-game-word-type', wordType);
     localStorage.setItem('word-game-scrambled', JSON.stringify(scrambledLetters));
     localStorage.setItem('word-game-selected', JSON.stringify(selectedLetters));
     localStorage.setItem('word-game-hint-level', hintLevel);
-  }, [level, score, currentWord, category, wordType, scrambledLetters, selectedLetters, hintLevel]);
 
-  // --- 광고 쿨타임 로직 (10분) ---
+    // 2. Supabase 저장 (로그인 상태일 때만)
+    if (user) {
+        // 너무 자주 저장하지 않도록 1초 딜레이 (Debounce)
+        const timer = setTimeout(() => {
+            saveProgress(user.id, level, score);
+        }, 1000);
+        return () => clearTimeout(timer);
+    }
+  }, [level, score, currentWord, category, wordType, scrambledLetters, selectedLetters, hintLevel, user]);
+
+  // --- 광고 쿨타임 로직 ---
   useEffect(() => {
     const today = new Date().toLocaleDateString();
     const savedDate = localStorage.getItem('ad-click-date');
@@ -104,7 +163,6 @@ const WordGuessGame = () => {
     const checkCooldown = () => {
       const now = Date.now();
       const diff = now - lastClickTime;
-      // 10분 = 10 * 60 * 1000
       if (diff < 10 * 60 * 1000) {
         setIsAdVisible(false);
         setTimeout(() => setIsAdVisible(true), (10 * 60 * 1000) - diff);
@@ -115,7 +173,6 @@ const WordGuessGame = () => {
 
   // --- 단어 로드 ---
   const loadNewWord = useCallback(() => {
-    // LEVEL_CONFIG 적용
     const config = (LEVEL_CONFIG && LEVEL_CONFIG.find(c => level <= c.maxLevel)) 
                    || (LEVEL_CONFIG ? LEVEL_CONFIG[LEVEL_CONFIG.length - 1] : { probs: { 1: 100 } });
 
@@ -139,16 +196,14 @@ const WordGuessGame = () => {
 
     if (!targetPool || targetPool.length === 0) targetPool = wordDatabase;
 
-    // 결정론적 랜덤 (같은 레벨 = 같은 문제)
     const magicNumber = 17; 
     const fixedIndex = ((level * magicNumber)) % targetPool.length;
     const selectedPick = targetPool[fixedIndex] || wordDatabase[0];
 
     setCurrentWord(selectedPick.word);
     setCategory(selectedPick.category);
-    setWordType(selectedPick.type || 'Normal'); // 타입 설정
+    setWordType(selectedPick.type || 'Normal');
 
-    // 글자 섞기
     const wordStr = selectedPick.word;
     const chars = wordStr.replace(/\s/g, '').split('').map((char, i) => ({ 
       char, id: `l-${Date.now()}-${i}-${Math.random()}` 
@@ -165,66 +220,42 @@ const WordGuessGame = () => {
 
   useEffect(() => { if (!currentWord) loadNewWord(); }, [currentWord, loadNewWord]);
 
-  // --- 단어 개수 계산 로직 ---
+  // 단어 개수 표시
   const wordCountDisplay = useMemo(() => {
     if (!currentWord) return '';
     const count = currentWord.trim().split(/\s+/).length;
-    return `${count} WORD${count > 1 ? 'S' : ''}`; // 1 WORD, 2 WORDS ...
+    return `${count} WORD${count > 1 ? 'S' : ''}`; 
   }, [currentWord]);
 
-  // --- 힌트 로직 (3단계) ---
+  // --- 힌트 등 핸들러 ---
   const handleHint = () => {
     playSound('click');
     if (isCorrect) return;
 
     if (hintLevel === 0) {
-        if (score >= 100) {
-            setScore(s => s - 100);
-            setHintLevel(1);
-        } else {
-            setMessage("Need 100 Points!");
-            setTimeout(() => setMessage(''), 1500);
-        }
-    } 
-    else if (hintLevel === 1) {
-        if (score >= 150) {
-            setScore(s => s - 150);
-            setHintLevel(2);
-        } else {
-            setMessage("Need 150 Points!");
-            setTimeout(() => setMessage(''), 1500);
-        }
-    }
-    else if (hintLevel >= 2) {
-        if (score >= 200) {
-            setScore(s => s - 200);
-            setIsFlashing(true);
-            playSound('flash');
-            setTimeout(() => {
-                setIsFlashing(false);
-            }, 500);
-        } else {
-            setMessage("Need 200 Points!");
-            setTimeout(() => setMessage(''), 1500);
-        }
+        if (score >= 100) { setScore(s => s - 100); setHintLevel(1); }
+        else { setMessage("Need 100 Points!"); setTimeout(() => setMessage(''), 1500); }
+    } else if (hintLevel === 1) {
+        if (score >= 150) { setScore(s => s - 150); setHintLevel(2); }
+        else { setMessage("Need 150 Points!"); setTimeout(() => setMessage(''), 1500); }
+    } else if (hintLevel >= 2) {
+        if (score >= 200) { setScore(s => s - 200); setIsFlashing(true); playSound('flash'); setTimeout(() => { setIsFlashing(false); }, 500); }
+        else { setMessage("Need 200 Points!"); setTimeout(() => setMessage(''), 1500); }
     }
   };
 
-  // 힌트 표시용 텍스트 (카테고리 아래)
   const hintDisplay = useMemo(() => {
     if (hintLevel === 0 || !currentWord) return null;
     const words = currentWord.split(/\s+/);
     return words.map(word => {
       const first = word.charAt(0).toUpperCase();
       const last = word.charAt(word.length - 1).toUpperCase();
-      
       if (hintLevel === 1) return `${first}...`;
       if (hintLevel >= 2) return word.length > 1 ? `${first}...${last}` : first;
       return "";
     }).join(' / ');
   }, [currentWord, hintLevel]);
 
-  // --- 기타 핸들러 ---
   const handleShuffle = () => {
     playSound('click');
     setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5));
@@ -232,7 +263,6 @@ const WordGuessGame = () => {
 
   const handleRewardAd = () => {
     if (adClickCount >= 10) return;
-    
     playSound('click');
     setIsAdLoading(true);
     setIsAdVisible(false);
@@ -246,7 +276,6 @@ const WordGuessGame = () => {
       playSound('reward'); 
       setMessage('+200P Reward!');
       setTimeout(() => setMessage(''), 2000);
-      
       if (newCount < 10) setTimeout(() => setIsAdVisible(true), 10 * 60 * 1000);
     }, 2500);
   };
@@ -279,7 +308,6 @@ const WordGuessGame = () => {
     setCurrentWord('');
   };
 
-  // 정답 체크
   useEffect(() => {
     const targetClean = currentWord.replace(/\s/g, '').toLowerCase();
     const selectedClean = selectedLetters.map(l => l.char).join('').toLowerCase();
@@ -292,7 +320,7 @@ const WordGuessGame = () => {
     }
   }, [selectedLetters, currentWord, isCorrect, playSound]);
 
-  // --- 렌더링: 정답 영역 (자리수 힌트 없음) ---
+  // 정답 렌더링 (빈칸 없음)
   const renderedAnswerArea = useMemo(() => {
     if (isFlashing) {
          return (
@@ -338,26 +366,33 @@ const WordGuessGame = () => {
     );
   }, [currentWord, selectedLetters, isCorrect, isFlashing]);
 
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4 font-sans text-gray-900 select-none">
       <div className="bg-white rounded-[2rem] p-6 w-full max-w-md shadow-2xl flex flex-col items-center border-t-8 border-indigo-500 min-h-[600px]">
         
-        {/* 상단: 레벨 & 점수 */}
+        {/* 상단: 레벨 & 로그인 & 점수 */}
         <div className="w-full flex justify-between items-center mb-2 font-black text-indigo-600">
           <span className="text-lg">LEVEL {level}</span>
-          <span className="flex items-center gap-1"><Trophy size={18} className="text-yellow-500"/> {score}</span>
+          <div className="flex items-center gap-3">
+             {user ? (
+                <button onClick={handleLogout} className="text-[10px] bg-red-100 text-red-500 px-2 py-1 rounded-lg flex items-center gap-1 hover:bg-red-200">
+                   <LogOut size={12}/> OUT
+                </button>
+             ) : (
+                <button onClick={handleLogin} className="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-lg flex items-center gap-1 hover:bg-blue-200 animate-pulse">
+                   <LogIn size={12}/> SAVE
+                </button>
+             )}
+             <span className="flex items-center gap-1"><Trophy size={18} className="text-yellow-500"/> {score}</span>
+          </div>
         </div>
 
         {/* 1. 카테고리 & 단어 수 표시 */}
         <div className="text-center mb-5 w-full">
-           {/* [수정됨] 단어 개수 + 타입 표시 (예: 2 WORDS • NORMAL) */}
            <span className="inline-block py-1 px-3 bg-indigo-100 text-indigo-600 text-xs font-black rounded-full uppercase tracking-widest mb-1">
              {wordCountDisplay} • {wordType}
            </span>
            <h2 className="text-3xl font-black text-gray-800 uppercase tracking-tight">{category}</h2>
-           
-           {/* 힌트 텍스트 */}
            {hintLevel > 0 && (
              <div className="text-indigo-500 font-bold text-lg mt-2 tracking-widest animate-bounce bg-indigo-50 py-1 px-4 rounded-lg inline-block">
                {hintDisplay}
@@ -412,7 +447,7 @@ const WordGuessGame = () => {
            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-gray-300 text-[10px] font-bold">ANSWER</span>
         </div>
 
-        {/* 5. 정답 적는 곳 (빈칸 없음) */}
+        {/* 5. 정답 적는 곳 */}
         <div className="w-full flex-grow flex flex-col justify-start items-center mb-6">
             {renderedAnswerArea}
             {(isCorrect || message) && (
