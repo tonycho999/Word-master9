@@ -49,7 +49,6 @@ const WordGuessGame = () => {
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
         osc.start(); osc.stop(ctx.currentTime + 0.05);
       } else if (type === 'flash') { 
-        // 플래시 힌트 효과음 (슉!)
         osc.frequency.setValueAtTime(1200, ctx.currentTime);
         gain.gain.setValueAtTime(0.1, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
@@ -87,7 +86,7 @@ const WordGuessGame = () => {
     localStorage.setItem('word-game-hint-level', hintLevel);
   }, [level, score, currentWord, category, wordType, scrambledLetters, selectedLetters, hintLevel]);
 
-  // --- 광고 로직 ---
+  // --- [수정됨] 광고 쿨타임 로직 (10분) ---
   useEffect(() => {
     const today = new Date().toLocaleDateString();
     const savedDate = localStorage.getItem('ad-click-date');
@@ -105,22 +104,20 @@ const WordGuessGame = () => {
     const checkCooldown = () => {
       const now = Date.now();
       const diff = now - lastClickTime;
-      if (diff < 5 * 60 * 1000) {
+      // 10분 = 10 * 60 * 1000
+      if (diff < 10 * 60 * 1000) {
         setIsAdVisible(false);
-        setTimeout(() => setIsAdVisible(true), (5 * 60 * 1000) - diff);
+        setTimeout(() => setIsAdVisible(true), (10 * 60 * 1000) - diff);
       }
     };
     checkCooldown();
   }, []);
 
-  // --- [핵심] 단어 로드: 레벨별 확률 & 결정론적 랜덤 ---
+  // --- 단어 로드 ---
   const loadNewWord = useCallback(() => {
-    // 1. 현재 레벨에 맞는 설정 찾기
-    // LEVEL_CONFIG가 없으면 기본값 사용
     const config = (LEVEL_CONFIG && LEVEL_CONFIG.find(c => level <= c.maxLevel)) 
                    || (LEVEL_CONFIG ? LEVEL_CONFIG[LEVEL_CONFIG.length - 1] : { probs: { 1: 100 } });
 
-    // 2. 확률에 따라 단어 개수(1~5) 결정
     const rand = Math.random() * 100;
     let cumProb = 0;
     let targetWordCount = 1;
@@ -133,18 +130,14 @@ const WordGuessGame = () => {
         }
     }
 
-    // 3. 해당 개수의 데이터베이스 선택
     let targetPool = wordDatabase;
     if (targetWordCount === 2) targetPool = twoWordDatabase;
     else if (targetWordCount === 3) targetPool = threeWordDatabase;
     else if (targetWordCount === 4) targetPool = fourWordDatabase;
     else if (targetWordCount === 5) targetPool = fiveWordDatabase;
 
-    // 만약 해당 풀이 비어있으면 기본(1단어) 사용
     if (!targetPool || targetPool.length === 0) targetPool = wordDatabase;
 
-    // 4. 결정론적 랜덤 (Deterministic Random)
-    // 레벨과 매직넘버를 이용해 항상 같은 문제를 출제
     const magicNumber = 17; 
     const fixedIndex = ((level * magicNumber)) % targetPool.length;
     const selectedPick = targetPool[fixedIndex] || wordDatabase[0];
@@ -153,7 +146,6 @@ const WordGuessGame = () => {
     setCategory(selectedPick.category);
     setWordType(selectedPick.type || 'Normal');
 
-    // 5. 글자 섞기 (이건 매번 달라져도 됨)
     const wordStr = selectedPick.word;
     const chars = wordStr.replace(/\s/g, '').split('').map((char, i) => ({ 
       char, id: `l-${Date.now()}-${i}-${Math.random()}` 
@@ -175,7 +167,6 @@ const WordGuessGame = () => {
     playSound('click');
     if (isCorrect) return;
 
-    // 1단계: 첫 글자 (100P)
     if (hintLevel === 0) {
         if (score >= 100) {
             setScore(s => s - 100);
@@ -185,7 +176,6 @@ const WordGuessGame = () => {
             setTimeout(() => setMessage(''), 1500);
         }
     } 
-    // 2단계: 마지막 글자 (150P)
     else if (hintLevel === 1) {
         if (score >= 150) {
             setScore(s => s - 150);
@@ -195,7 +185,6 @@ const WordGuessGame = () => {
             setTimeout(() => setMessage(''), 1500);
         }
     }
-    // 3단계: 정답 0.5초 보여주기 (FLASH - 200P)
     else if (hintLevel >= 2) {
         if (score >= 200) {
             setScore(s => s - 200);
@@ -211,7 +200,6 @@ const WordGuessGame = () => {
     }
   };
 
-  // 힌트 텍스트 생성 (A...E)
   const hintDisplay = useMemo(() => {
     if (hintLevel === 0 || !currentWord) return null;
     const words = currentWord.split(/\s+/);
@@ -231,8 +219,11 @@ const WordGuessGame = () => {
     setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5));
   };
 
+  // --- [수정됨] 광고 핸들러 (10회 제한, 10분 쿨타임) ---
   const handleRewardAd = () => {
-    if (adClickCount >= 20) return;
+    // 하루 10회 제한
+    if (adClickCount >= 10) return;
+    
     playSound('click');
     setIsAdLoading(true);
     setIsAdVisible(false);
@@ -246,7 +237,10 @@ const WordGuessGame = () => {
       playSound('reward'); 
       setMessage('+200P Reward!');
       setTimeout(() => setMessage(''), 2000);
-      if (newCount < 20) setTimeout(() => setIsAdVisible(true), 5 * 60 * 1000);
+      
+      // 10분 쿨타임 = 10 * 60 * 1000
+      // 횟수 제한(10회) 미만일 때만 다시 표시 예약
+      if (newCount < 10) setTimeout(() => setIsAdVisible(true), 10 * 60 * 1000);
     }, 2500);
   };
 
@@ -278,7 +272,6 @@ const WordGuessGame = () => {
     setCurrentWord('');
   };
 
-  // 정답 체크
   useEffect(() => {
     const targetClean = currentWord.replace(/\s/g, '').toLowerCase();
     const selectedClean = selectedLetters.map(l => l.char).join('').toLowerCase();
@@ -291,9 +284,8 @@ const WordGuessGame = () => {
     }
   }, [selectedLetters, currentWord, isCorrect, playSound]);
 
-  // --- 렌더링: 정답 영역 (줄바꿈 로직 포함) ---
+  // --- 렌더링 영역 ---
   const renderedAnswerArea = useMemo(() => {
-    // Flash 힌트 작동 시: 정답을 통째로 보여줌
     if (isFlashing) {
          return (
              <div className="flex flex-col gap-3 items-center w-full animate-pulse">
@@ -310,7 +302,6 @@ const WordGuessGame = () => {
          );
     }
 
-    // 평상시: 유저가 선택한 글자들을 '단어 단위'로 끊어서 배치
     const words = currentWord.split(' ');
     let globalCharIndex = 0;
 
@@ -321,10 +312,7 @@ const WordGuessGame = () => {
             {word.split('').map((char, charIndex) => {
               const selectedCharObj = selectedLetters[globalCharIndex];
               const isFilled = selectedCharObj !== undefined;
-              
-              // 다음 글자를 가리키기 위해 인덱스 증가
               globalCharIndex++; 
-
               return (
                 <div 
                   key={`${wordIndex}-${charIndex}`} 
@@ -348,7 +336,6 @@ const WordGuessGame = () => {
     );
   }, [currentWord, selectedLetters, isCorrect, isFlashing]);
 
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4 font-sans text-gray-900 select-none">
       <div className="bg-white rounded-[2rem] p-6 w-full max-w-md shadow-2xl flex flex-col items-center border-t-8 border-indigo-500 min-h-[600px]">
@@ -359,14 +346,13 @@ const WordGuessGame = () => {
           <span className="flex items-center gap-1"><Trophy size={18} className="text-yellow-500"/> {score}</span>
         </div>
 
-        {/* 1. 카테고리 (가장 위) */}
+        {/* 1. 카테고리 */}
         <div className="text-center mb-5 w-full">
            <span className="inline-block py-1 px-3 bg-indigo-100 text-indigo-600 text-xs font-black rounded-full uppercase tracking-widest mb-1">
              {wordType}
            </span>
            <h2 className="text-3xl font-black text-gray-800 uppercase tracking-tight">{category}</h2>
-           
-           {/* 힌트 텍스트 (A...E) */}
+           {/* 힌트 텍스트 */}
            {hintLevel > 0 && (
              <div className="text-indigo-500 font-bold text-lg mt-2 tracking-widest animate-bounce bg-indigo-50 py-1 px-4 rounded-lg inline-block">
                {hintDisplay}
@@ -374,7 +360,7 @@ const WordGuessGame = () => {
            )}
         </div>
 
-        {/* 2. 기능 버튼 (힌트 & 셔플) */}
+        {/* 2. 기능 버튼 */}
         <div className="flex gap-3 w-full mb-3">
             <button onClick={handleHint} disabled={isCorrect} 
               className="flex-1 py-3 bg-gray-100 rounded-xl text-xs font-black flex items-center justify-center gap-1 uppercase hover:bg-gray-200 active:scale-95 transition-all">
@@ -387,20 +373,20 @@ const WordGuessGame = () => {
             </button>
         </div>
 
-        {/* 3. 광고 버튼 */}
+        {/* 3. 광고 버튼 (10회 제한) */}
         <div className="w-full mb-6">
-           {isAdVisible && adClickCount < 20 ? (
+           {isAdVisible && adClickCount < 10 ? (
             <button onClick={handleRewardAd} className="w-full py-3 bg-amber-400 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 active:scale-95 shadow-md hover:bg-amber-500 transition-all">
-              <PlayCircle size={16}/> {isAdLoading ? 'LOADING...' : `WATCH AD (+200P)`}
+              <PlayCircle size={16}/> {isAdLoading ? 'LOADING...' : `WATCH AD (+200P) (${adClickCount}/10)`}
             </button>
           ) : (
             <div className="w-full py-2 text-center text-[10px] text-gray-400 font-bold italic bg-gray-50 rounded-lg">
-              {adClickCount >= 20 ? "Daily limit reached" : "Next reward in 5 mins"}
+              {adClickCount >= 10 ? "Daily limit reached (10/10)" : "Next reward in 10 mins"}
             </div>
           )}
         </div>
 
-        {/* 4. 섞인 알파벳 버튼들 (소스) */}
+        {/* 4. 섞인 알파벳 버튼들 */}
         <div className="flex flex-wrap gap-2 justify-center mb-8 min-h-[100px] content-start">
           {scrambledLetters.map(l => (
             <button 
@@ -411,7 +397,6 @@ const WordGuessGame = () => {
               {l.char.toUpperCase()}
             </button>
           ))}
-          {/* 다 썼을 때 빈 공간 유지용 플레이스홀더 */}
           {scrambledLetters.length === 0 && !isCorrect && (
             <div className="text-gray-300 text-xs font-bold italic py-4">All letters placed</div>
           )}
@@ -422,7 +407,7 @@ const WordGuessGame = () => {
            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-gray-300 text-[10px] font-bold">ANSWER</span>
         </div>
 
-        {/* 5. 정답 적는 곳 (타겟) */}
+        {/* 5. 정답 적는 곳 */}
         <div className="w-full flex-grow flex flex-col justify-start items-center mb-6">
             {renderedAnswerArea}
             {(isCorrect || message) && (
@@ -432,15 +417,13 @@ const WordGuessGame = () => {
             )}
         </div>
 
-        {/* 6. 하단 컨트롤 버튼 (조건부 렌더링) */}
+        {/* 6. 하단 컨트롤 버튼 */}
         <div className="w-full mt-auto pt-4 border-t border-gray-50">
           {isCorrect ? (
-            // 정답 맞혔을 때: 다음 레벨 버튼
             <button onClick={processNextLevel} className="w-full py-4 bg-green-500 text-white rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 hover:bg-green-600 active:scale-95 transition-all">
               NEXT LEVEL <ArrowRight size={24}/>
             </button>
           ) : (
-            // 게임 중일 때: 리셋 & 백스페이스
             <div className="flex gap-3">
               <button onClick={handleReset} className="flex-1 py-4 bg-gray-200 text-gray-500 rounded-xl font-black text-sm uppercase flex items-center justify-center gap-2 hover:bg-gray-300 active:scale-95 transition-all">
                  <RefreshCcw size={18}/> RESET
