@@ -1,16 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
 // ----------------------------------------------------------------
-// [중요] 아래 두 줄의 따옴표('') 안에 본인의 Supabase 주소와 키를 넣으세요!
+// [완료] 고객님의 주소와 키를 적용했습니다. 그대로 저장하세요!
 // ----------------------------------------------------------------
-const supabaseUrl = 'YOUR_SUPABASE_URL'; 
-const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+const supabaseUrl = 'https://sfepjxhwlpisdpcdklwt.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmZXBqeGh3bHBpc2RwY2RrbHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjE3NjUsImV4cCI6MjA4NTg5Nzc2NX0.murbKE8QvK9Qe2tw1BF8_XJK7bG4QWEHjmbgoACONcY';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- 게임에서 사용할 기능들 ---
 
-// 1. 구글 로그인 (수정됨: 에러 원인이었던 data 변수 삭제)
+// 1. 구글 로그인
 export const loginWithGoogle = async () => {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -33,7 +33,7 @@ export const saveProgress = async (userId, level, score) => {
   const { data: existingData } = await supabase
     .from('game_progress')
     .select('id')
-    .eq('userid', userId) // 테이블 컬럼명이 'userid'인지 꼭 확인하세요!
+    .eq('userid', userId) // 테이블 컬럼명: userid
     .single();
 
   if (existingData) {
