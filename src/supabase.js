@@ -1,84 +1,99 @@
 import { createClient } from '@supabase/supabase-js';
 
 // ----------------------------------------------------------------
-// [설정] 고객님의 주소와 키 (그대로 유지)
+// [설정] 고객님의 주소와 키
 // ----------------------------------------------------------------
 const supabaseUrl = 'https://sfepjxhwlpisdpcdklwt.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmZXBqeGh3bHBpc2RwY2RrbHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjE3NjUsImV4cCI6MjA4NTg5Nzc2NX0.murbKE8QvK9Qe2tw1BF8_XJK7bG4QWEHjmbgoACONcY';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- 게임에서 사용할 기능들 ---
+// --- 기본 기능 ---
 
-// 1. 로그인 (비상용 함수 - 실제로는 메인 화면의 모달창이 사용됨)
-export const loginWithGoogle = async () => {
-  const email = window.prompt("Enter email for Magic Link:");
-  if (!email) return;
-  const { error } = await supabase.auth.signInWithOtp({ email });
-  if (error) alert(error.message);
-  else alert("Check your email inbox!");
-};
+export const loginWithGoogle = async () => { /* ...사용 안함 (모달 사용)... */ };
 
-// 2. 로그아웃
 export const logout = async () => {
   const { error } = await supabase.auth.signOut();
   if (error) console.error('Logout Error:', error);
 };
 
-// 3. [디버깅 모드] 데이터 저장 함수
+// 1. 단순 저장 (강제 저장)
 export const saveProgress = async (userId, level, score, email) => {
-  console.log("🚀 [저장 시도] 데이터:", { userId, level, score, email });
-
   try {
-    // DB 테이블 컬럼명에 맞춰서 데이터 준비
     const updates = {
       userid: userId,    
       level: Number(level),
       score: Number(score),
-      // updated_at: new Date(), // ★ DB에 'updated_at' 컬럼을 추가하기 전까지는 주석 처리합니다.
+      // updated_at: new Date(), 
     };
+    if (email) updates.email = email;
 
-    // 이메일이 있을 때만 추가 (빈 값 덮어쓰기 방지)
-    if (email) {
-      updates.email = email;
-    }
-
-    // DB에 저장 요청 (upsert: 없으면 생성, 있으면 수정)
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('game_progress') 
-      .upsert(updates, { onConflict: 'userid' }) // userid가 같으면 덮어쓰기
-      .select(); 
+      .upsert(updates, { onConflict: 'userid' });
 
-    // 에러 발생 시 알림창 띄우기 (디버깅용)
-    if (error) {
-      console.error("❌ [저장 실패] DB 에러:", error); 
-      alert("데이터 저장 실패!\n원인: " + error.message);
-      throw error;
-    }
-    
-    console.log("✅ [저장 성공] DB 응답:", data);
-
+    if (error) throw error;
+    console.log("✅ [DB 저장 완료]");
   } catch (error) {
-    console.error("❌ [시스템 에러]:", error.message);
+    console.error("❌ [저장 실패]:", error.message);
   }
 };
 
-// 4. 데이터 불러오기
+// 2. 단순 불러오기
 export const loadProgress = async (userId) => {
   try {
     const { data, error } = await supabase
       .from('game_progress')
       .select('*')
       .eq('userid', userId)
-      .maybeSingle(); // 데이터가 없으면 null 반환 (에러 아님)
+      .maybeSingle(); 
 
-    if (error) {
-      console.error("불러오기 에러:", error);
-      throw error;
-    }
+    if (error) throw error;
     return data;
   } catch (error) {
     console.error('Load Error:', error.message);
     return null;
+  }
+};
+
+// ----------------------------------------------------------------
+// ★ [NEW] 데이터 동기화 및 충돌 해결 함수 (여기로 통합됨)
+// ----------------------------------------------------------------
+export const syncGameData = async (userId, localLevel, localScore, email) => {
+  console.log("🔄 [동기화 시작] 로컬 데이터 비교 중...");
+  
+  try {
+    // 1. DB 데이터 가져오기
+    const dbData = await loadProgress(userId);
+
+    // 2. DB에 데이터가 없으면 -> 로컬 데이터를 저장하고 끝냄
+    if (!dbData) {
+      await saveProgress(userId, localLevel, localScore, email);
+      return { status: 'SAVED_TO_DB', data: { level: localLevel, score: localScore } };
+    }
+
+    // 3. 비교 로직
+    // [상황 A] 레벨이 다르면 -> 무조건 충돌 (사용자 선택 필요)
+    if (dbData.level !== localLevel) {
+      return { status: 'CONFLICT', serverData: dbData };
+    }
+
+    // [상황 B] 레벨은 같은데, DB 점수가 더 높음 -> DB 데이터로 내 폰을 업데이트
+    if (dbData.score > localScore) {
+      return { status: 'UPDATE_LOCAL', serverData: dbData };
+    }
+
+    // [상황 C] 레벨은 같은데, 내 점수가 더 높음 -> 내 점수를 DB에 저장
+    if (localScore > dbData.score) {
+      await saveProgress(userId, localLevel, localScore, email);
+      return { status: 'SAVED_TO_DB', data: { level: localLevel, score: localScore } };
+    }
+
+    // [상황 D] 둘다 똑같음
+    return { status: 'SYNCED', data: dbData };
+
+  } catch (error) {
+    console.error("동기화 로직 에러:", error);
+    return { status: 'ERROR', error };
   }
 };
