@@ -30,7 +30,7 @@ const WordGuessGame = () => {
   const auth = useAuthSystem(playSound, levelRef, scoreRef, setLevel, setScore);
   const game = useGameLogic(playSound, level, score, setScore, auth.setMessage);
 
-  // [3] 로컬 상태 (이메일 입력, 광고, PWA) - 간단한 건 여기에 둠
+  // [3] 로컬 상태 (이메일 입력, 광고, PWA)
   const [inputEmail, setInputEmail] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -97,12 +97,24 @@ const WordGuessGame = () => {
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4 font-sans text-gray-900 select-none relative">
       <SyncConflictModal conflictData={auth.conflictData} currentLevel={level} currentScore={score} onResolve={auth.handleResolveConflict} />
 
+      {/* 이메일 로그인 모달 */}
       {auth.showLoginModal && (
           <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl p-6 max-w-xs w-full shadow-2xl animate-fade-in-up">
                   <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-black text-indigo-600 flex items-center gap-2"><Mail size={24}/> LOGIN</h3><button onClick={() => auth.setShowLoginModal(false)}><X size={24}/></button></div>
+                  
+                  {/* ★ [추가된 안내 문구] */}
+                  <div className="bg-indigo-50 p-3 rounded-xl mb-4 border border-indigo-100">
+                    <p className="text-xs text-indigo-800 font-bold leading-relaxed mb-1">
+                      ⚠️ <span className="text-red-500">Log out resets current device to Lv.1</span>
+                    </p>
+                    <p className="text-[10px] text-gray-500 font-medium leading-tight">
+                      Don't worry! Your progress is safe on the server. Just log in again to restore it.
+                    </p>
+                  </div>
+
                   <form onSubmit={sendMagicLink} className="flex flex-col gap-3">
-                      <input type="email" value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} placeholder="your@email.com" className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-indigo-50" required />
+                      <input type="email" value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} placeholder="your@email.com" className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-white" required />
                       <button type="submit" disabled={isSendingEmail} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black flex items-center justify-center gap-2">
                         {isSendingEmail ? 'SENDING...' : 'SEND MAGIC LINK'} <Send size={16}/>
                       </button>
