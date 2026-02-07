@@ -10,7 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- 게임에서 사용할 기능들 ---
 
-// 1. 로그인 (매직 링크 방식 - WordGuessGame.js에서 직접 호출하지만, 비상용으로 남겨둠)
+// 1. 로그인
 export const loginWithGoogle = async () => {
   const email = window.prompt("Enter email for Magic Link:");
   if (!email) return;
@@ -25,8 +25,10 @@ export const logout = async () => {
   if (error) console.error('Logout Error:', error);
 };
 
-// 3. [수정됨] 데이터 저장 (data 변수 제거하여 빌드 에러 해결)
+// 3. [디버깅] 데이터 저장 함수 (에러를 확실히 보여줌)
 export const saveProgress = async (userId, level, score, email) => {
+  console.log("🚀 [저장 시도] 데이터:", { userId, level, score, email }); // 1. 시도 로그
+
   try {
     const updates = {
       userid: userId,    
@@ -39,17 +41,23 @@ export const saveProgress = async (userId, level, score, email) => {
       updates.email = email;
     }
 
-    // [수정] 여기서 { data, error } 에서 data를 지웠습니다.
-    const { error } = await supabase
+    // DB에 저장 요청
+    const { data, error } = await supabase
       .from('game_progress') 
-      .upsert(updates, { onConflict: 'userid' });
+      .upsert(updates, { onConflict: 'userid' })
+      .select(); // 저장이 잘 됐는지 결과를 반환받음
 
-    if (error) throw error;
+    // 에러 발생 시
+    if (error) {
+      console.error("❌ [저장 실패] DB 에러:", error); // 2. 에러 로그 (중요!)
+      alert("데이터 저장 실패: " + error.message + "\n(개발자 도구 콘솔을 확인하세요)");
+      throw error;
+    }
     
-    console.log("DB 저장 성공:", updates);
+    console.log("✅ [저장 성공] 완료된 데이터:", data); // 3. 성공 로그
 
   } catch (error) {
-    console.error('Save Error:', error.message);
+    console.error("❌ [시스템 에러]:", error.message);
   }
 };
 
@@ -62,9 +70,11 @@ export const loadProgress = async (userId) => {
       .eq('userid', userId)
       .maybeSingle(); 
 
-    if (error) throw error;
+    if (error) {
+      console.error("불러오기 에러:", error);
+      throw error;
+    }
     return data;
-
   } catch (error) {
     console.error('Load Error:', error.message);
     return null;
