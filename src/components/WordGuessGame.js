@@ -2,17 +2,17 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase, loginWithGoogle, logout, saveProgress, loadProgress } from '../supabase';
 import { wordDatabase, twoWordDatabase, threeWordDatabase, fourWordDatabase, fiveWordDatabase, LEVEL_CONFIG } from '../data/wordDatabase';
 
-// 하위 컴포넌트 임포트
+// 분리된 컴포넌트 임포트
 import SyncConflictModal from './SyncConflictModal';
 import GameHeader from './GameHeader';
-import AnswerBoard from './AnswerBoard';
 import GameControls from './GameControls';
+import AnswerBoard from './AnswerBoard';
 
 // [배포 버전]
 const CURRENT_VERSION = '1.3.1'; 
 
 const WordGuessGame = () => {
-  // --- 상태 관리 ---
+  // --- [1] 상태 관리 (State Management) ---
   const [user, setUser] = useState(null); 
   const [isOnline, setIsOnline] = useState(navigator.onLine); 
 
@@ -54,7 +54,7 @@ const WordGuessGame = () => {
     }
   }, []);
 
-  // --- 사운드 ---
+  // --- [2] 사운드 (Sound Logic) ---
   const playSound = useCallback(async (type) => {
     try {
       if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -95,7 +95,7 @@ const WordGuessGame = () => {
     } catch (e) {}
   }, []);
 
-  // --- 데이터 충돌 체크 ---
+  // --- [3] 데이터 동기화 및 인증 (Sync & Auth) ---
   const checkDataConflict = useCallback(async (userId) => {
       if (!navigator.onLine) return;
 
@@ -121,7 +121,6 @@ const WordGuessGame = () => {
       }
   }, []);
 
-  // --- 온라인/오프라인 리스너 ---
   useEffect(() => {
     const handleOnline = () => {
         setIsOnline(true);
@@ -141,7 +140,6 @@ const WordGuessGame = () => {
     };
   }, [user, checkDataConflict]);
 
-  // --- Auth & Data Sync ---
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -182,7 +180,7 @@ const WordGuessGame = () => {
       playSound('click'); await logout(); setUser(null); setMessage('LOGGED OUT'); setTimeout(() => setMessage(''), 1500); 
   };
 
-  // --- 자동 저장 ---
+  // --- [4] 자동 저장 및 광고 (Auto Save & Ads) ---
   useEffect(() => {
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
@@ -201,7 +199,6 @@ const WordGuessGame = () => {
     }
   }, [level, score, currentWord, category, wordType, scrambledLetters, selectedLetters, solvedWordsData, hintStage, hintMessage, user, conflictData, isOnline]);
 
-  // --- 광고 쿨타임 ---
   useEffect(() => {
     const today = new Date().toLocaleDateString();
     const savedDate = localStorage.getItem('ad-click-date');
@@ -225,7 +222,7 @@ const WordGuessGame = () => {
     checkCooldown();
   }, []);
 
-  // --- 단어 로드 ---
+  // --- [5] 게임 플레이 로직 (Game Logic) ---
   const loadNewWord = useCallback(() => {
     const config = (LEVEL_CONFIG && LEVEL_CONFIG.find(c => level <= c.maxLevel)) || (LEVEL_CONFIG ? LEVEL_CONFIG[LEVEL_CONFIG.length - 1] : { probs: { 1: 100 } });
     const rand = Math.random() * 100;
@@ -266,7 +263,6 @@ const WordGuessGame = () => {
 
   useEffect(() => { if (!currentWord) loadNewWord(); }, [currentWord, loadNewWord]);
 
-  // --- 게임 로직 ---
   const wordCountDisplay = useMemo(() => {
     if (!currentWord) return '';
     const count = currentWord.trim().split(/\s+/).length;
@@ -323,7 +319,7 @@ const WordGuessGame = () => {
     if (isOnline && user) await saveProgress(user.id, nextLevel, nextScore);
   };
 
-  // --- 정답 체크 ---
+  // 정답 확인
   useEffect(() => {
     if (!currentWord) return;
     const enteredStr = selectedLetters.map(l => l.char).join('').toUpperCase();
@@ -338,11 +334,10 @@ const WordGuessGame = () => {
     }
   }, [selectedLetters, currentWord, solvedWordsData, playSound]);
 
-  // --- 렌더링 (조립) ---
+  // --- [6] 렌더링 (UI Composition) ---
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4 font-sans text-gray-900 select-none relative">
       
-      {/* 1. 충돌 팝업 */}
       <SyncConflictModal 
         conflictData={conflictData}
         currentLevel={level}
@@ -352,7 +347,6 @@ const WordGuessGame = () => {
 
       <div className="bg-white rounded-[2rem] p-4 w-full max-w-md shadow-2xl flex flex-col items-center border-t-8 border-indigo-500">
         
-        {/* 2. 상단 헤더 */}
         <GameHeader 
           level={level}
           score={score}
@@ -362,78 +356,46 @@ const WordGuessGame = () => {
           onLogout={handleLogout}
         />
 
-        {/* 3. 중간 컨트롤 + 키보드 + 하단버튼 (컨테이너 역할) */}
+        {/* GameControls를 Wrapper로 사용합니다.
+           AnswerBoard가 GameControls의 children으로 전달되어
+           GameControls 내부의 키보드와 하단 버튼 사이에 렌더링됩니다.
+        */}
         <GameControls
-            // 카테고리 정보
             category={category}
             wordType={wordType}
             wordCountDisplay={wordCountDisplay}
             hintMessage={hintMessage}
             isCorrect={isCorrect}
-            // 힌트 & 셔플
             hintStage={hintStage}
             hintButtonText={getHintButtonText()}
             onHint={handleHint}
             onShuffle={handleShuffle}
-            // 광고
             isAdVisible={isAdVisible}
             isAdLoading={isAdLoading}
             adClickCount={adClickCount}
             onRewardAd={handleRewardAd}
             isOnline={isOnline}
-            // 키보드
             scrambledLetters={scrambledLetters}
             onLetterClick={handleLetterClick}
-            // 하단 조작
             onReset={handleReset}
             onBackspace={handleBackspace}
             onNextLevel={processNextLevel}
-        />
-
-        {/* 4. 정답 보드 (GameControls 안에 넣지 않고 여기에 배치하여 Layout 유지) */}
-        {/* (GameControls 컴포넌트 내부의 '구분선' 아래 위치를 맞추기 위해 순서 조정이 필요하다면 
-             GameControls가 children을 받도록 하거나, AnswerBoard를 분리해서 배치합니다.)
-             *여기서는 레이아웃 순서상 키보드 아래에 정답판이 오도록 배치했습니다.*
-        */}
-        <div className="w-full order-last mb-20"> {/* margin-bottom을 주어 하단 버튼과 겹치지 않게 */}
-             {/* 사실 GameControls 안에 하단 버튼이 있어서 순서가 애매해질 수 있습니다. 
-                 깔끔하게 하기 위해 AnswerBoard를 GameControls *사이*에 끼워넣는게 좋지만,
-                 파일 분리 요청에 따라 AnswerBoard를 별도로 둡니다. 
-                 
-                 *수정*: GameControls.js 코드를 보면 <AnswerBoard> 자리를 비워뒀습니다.
-                 하지만 React 구조상 Props로 전달하거나 Children으로 넣는게 좋습니다.
-                 여기서는 GameControls를 수정하여 'children'으로 AnswerBoard를 받도록 하겠습니다.
-             */}
-        </div>
-        
-        {/* 리팩토링 팁: 
-            GameControls가 하단 버튼까지 포함하고 있어서, 
-            AnswerBoard(정답판)가 키보드와 하단 버튼 사이에 오려면
-            구조를 조금 바꿔야 합니다. 
-            
-            가장 쉬운 방법: GameControls를 상단부(UpperControls)와 하단부(FooterControls)로 쪼개거나,
-            지금처럼 GameControls.js를 수정하지 않고,
-            GameControls.js가 children을 받도록 수정하는 것입니다.
-        */}
+        >
+            {/* 자식 컴포넌트: 정답 보드 */}
+            <AnswerBoard 
+                currentWord={currentWord}
+                solvedWordsData={solvedWordsData}
+                selectedLetters={selectedLetters}
+                isCorrect={isCorrect}
+                isFlashing={isFlashing}
+                hintStage={hintStage}
+                message={message}
+            />
+        </GameControls>
 
       </div>
     </div>
   );
 };
 
-// [중요 수정] GameControls 컴포넌트가 AnswerBoard를 감쌀 수 있게 수정해야 완벽합니다.
-// 하지만 파일을 이미 4번에서 제공했으므로, 
-// 5번 파일(Main)에서 GameControls와 AnswerBoard를 적절히 배치하는 대신,
-// **GameControls.js** 코드를 다시 보면 "AnswerBoard가 여기에 들어가지만..." 주석이 있습니다.
-// 따라서 5번 파일은 이렇게 구성하는 것이 맞습니다:
-
-/*
-   <GameControls ...props >
-      <AnswerBoard ...props />
-   </GameControls> 
-*/
-
-// 이를 위해 4번 파일(GameControls.js)의 props에 { children }을 추가하고
-// 구분선 아래에 {children}을 렌더링하도록 4번 파일을 살짝 수정해서 사용하시거나,
-// 제가 드린 4번 파일 코드를 그대로 쓰신다면 AnswerBoard가 화면에 안 나올 수 있습니다.
-// **따라서 아래 최종 수정된 WordGuessGame.js 에서는 컴포넌트를 직접 배치합니다.**
+export default WordGuessGame;
