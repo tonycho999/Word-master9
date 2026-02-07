@@ -4,7 +4,7 @@ import { supabase, loginWithGoogle, logout, saveProgress, loadProgress } from '.
 import { wordDatabase, twoWordDatabase, threeWordDatabase, fourWordDatabase, fiveWordDatabase, LEVEL_CONFIG } from '../data/wordDatabase';
 
 // [배포 버전]
-const CURRENT_VERSION = '1.2.4'; 
+const CURRENT_VERSION = '1.2.6'; 
 
 const WordGuessGame = () => {
   // --- 상태 관리 ---
@@ -77,7 +77,7 @@ const WordGuessGame = () => {
         [523, 659, 783, 1046].forEach((f, i) => {
           const o = ctx.createOscillator(); const g = ctx.createGain();
           o.connect(g); g.connect(ctx.destination); o.frequency.value = f;
-          g.gain.setValueAtTime(0.1, ctx.currentTime + i*0.08); o.start(ctx.currentTime + i*0.08); o.stop(ctx.currentTime + 0.1); 
+          g.gain.setValueAtTime(0.1, ctx.currentTime + i*0.08); o.start(ctx.currentTime + i*0.08); o.stop(ctx.currentTime + i*0.1); 
         });
       } else if (type === 'reward') {
         [440, 554, 659, 880, 1108].forEach((f, i) => {
@@ -234,7 +234,7 @@ const WordGuessGame = () => {
     return `${count} WORD${count > 1 ? 'S' : ''}`; 
   }, [currentWord]);
 
-  // --- [수정됨] 힌트 로직 (점진적 공개) ---
+  // --- 힌트 로직 (점진적 공개) ---
   const handleHint = () => {
     playSound('click');
     if (isCorrect) return;
@@ -242,7 +242,6 @@ const WordGuessGame = () => {
     const words = currentWord.split(' ');
 
     if (hintStage === 0) {
-        // 1단계: 첫글자만 + ... (예: A... / B...)
         if (score >= 100) { 
             setScore(s => s - 100); 
             setHintStage(1); 
@@ -251,7 +250,6 @@ const WordGuessGame = () => {
         } else { setMessage("Need 100 Points!"); setTimeout(() => setMessage(''), 1500); }
     } 
     else if (hintStage === 1) {
-        // 2단계: 첫글자 + ... + 마지막글자 (예: A...B / B...B)
         if (score >= 200) { 
             setScore(s => s - 200); 
             setHintStage(2); 
@@ -328,22 +326,35 @@ const WordGuessGame = () => {
     }
   };
 
-  // --- 정답 체크 ---
+  // --- [중요] 정답 체크 (자유 입력 -> 자동 배치) ---
   useEffect(() => {
     if (!currentWord) return;
 
+    // 현재 입력된 문자열 (공백 제거)
     const enteredStr = selectedLetters.map(l => l.char).join('').toUpperCase();
+    
+    // 전체 단어들
     const targetWords = currentWord.toUpperCase().split(' ');
+    
+    // 이미 맞춘 단어들
     const alreadySolvedWords = solvedWordsData.map(data => data.word.toUpperCase());
+
+    // "아직 못 맞춘 단어" 중 "현재 입력값"과 똑같은 단어가 있는지 확인
     const matchIndex = targetWords.findIndex(word => word === enteredStr && !alreadySolvedWords.includes(word));
 
     if (matchIndex !== -1) {
+        // 정답 단어 발견!
         const matchedWord = targetWords[matchIndex];
+        
+        // 1. 맞춘 단어로 등록 (자동으로 위쪽 칸으로 이동됨)
         const newSolvedData = [...solvedWordsData, { word: matchedWord, letters: [...selectedLetters] }];
         setSolvedWordsData(newSolvedData);
+
+        // 2. 입력창은 비우기
         setSelectedLetters([]);
         playSound('partialSuccess');
 
+        // 3. 모든 단어를 다 맞췄는지 확인
         if (newSolvedData.length === targetWords.length) {
             setIsCorrect(true);
             playSound('allSuccess');
@@ -351,15 +362,16 @@ const WordGuessGame = () => {
     }
   }, [selectedLetters, currentWord, solvedWordsData, playSound]);
 
-  // --- 렌더링 (레이아웃 안정화) ---
+  // --- 렌더링 (디자인 수정: 폰트 축소, 테두리 변경) ---
   const renderedAnswerArea = useMemo(() => {
+    // 1. Flash
     if (isFlashing) {
          return (
-             <div className="flex flex-col gap-3 items-center w-full animate-pulse">
+             <div className="flex flex-col gap-2 items-center w-full animate-pulse">
                 {currentWord.split(' ').map((word, wIdx) => (
                     <div key={wIdx} className="flex gap-1 justify-center flex-wrap">
                         {word.split('').map((char, cIdx) => (
-                           <div key={cIdx} className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-amber-500 bg-amber-50 text-amber-600 rounded-t-lg flex items-center justify-center text-xl font-black">
+                           <div key={cIdx} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-amber-500 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center text-base font-bold">
                                 {char.toUpperCase()}
                            </div>
                         ))}
@@ -369,78 +381,82 @@ const WordGuessGame = () => {
          );
     }
 
-    // 1. 이미 맞춘 단어 (무조건 렌더링, 색상만 초록색)
+    // 2. 이미 맞춘 단어 (무조건 줄바꿈되어 표시됨 - 고정석)
     const solvedArea = solvedWordsData.map((data, idx) => (
-        <React.Fragment key={`solved-${idx}`}>
+        <div key={`solved-${idx}`} className="flex gap-1 justify-center flex-wrap mb-2 animate-bounce">
             {data.letters.map(l => (
-                <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-green-500 bg-green-50 text-green-600 rounded-t-lg flex items-center justify-center text-xl font-black">
+                <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-green-500 bg-green-50 text-green-600 rounded-lg flex items-center justify-center text-base font-bold">
                     {l.char.toUpperCase()}
                 </div>
             ))}
-        </React.Fragment>
+        </div>
     ));
 
-    // 2. 입력 중인 단어 (아직 못 맞춘 것)
     let inputArea;
 
+    // 3-A. [미스터리 모드] 힌트 3단계 미만 -> 자유로운 입력 (한 줄로 쭉)
     if (!isCorrect && hintStage < 3) {
-        // [미스터리 모드] 그냥 입력된 글자만 순서대로 보여줌 (줄바꿈 없음)
-        inputArea = selectedLetters.map((l) => (
-            <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-indigo-600 bg-indigo-50 text-indigo-800 rounded-t-lg flex items-center justify-center text-xl font-black -translate-y-1">
-                {l.char.toUpperCase()}
+        inputArea = (
+            <div className="flex flex-wrap gap-1 md:gap-2 w-full justify-center items-center min-h-[60px]">
+                {selectedLetters.map((l) => (
+                    <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-indigo-600 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center text-base font-bold -translate-y-1">
+                      {l.char.toUpperCase()}
+                    </div>
+                ))}
+                {selectedLetters.length === 0 && ( 
+                    <span className="text-gray-300 text-xs font-bold tracking-widest animate-pulse uppercase">TAP LETTERS</span> 
+                )}
             </div>
-        ));
-    } else {
-         // [구조 공개 모드] 힌트 3단계 이상 or 전체 정답 시 -> 빈칸 구조 보여줌
-         // 레이아웃 흔들림 방지를 위해, 여기서도 '남은 단어'에 대한 빈칸만 그립니다.
-         // 다만 이미 맞춘 단어는 위(solvedArea)에서 그렸으므로 여기선 제외.
-         
+        );
+    } 
+    // 3-B. [구조 공개 모드] 힌트 3단계 이상 -> 빈칸(회색 박스)과 함께 구조 표시
+    else {
          const allWords = currentWord.split(' ');
          const solvedWordsList = solvedWordsData.map(d => d.word.toUpperCase());
          const remainingWords = allWords.filter(w => !solvedWordsList.includes(w.toUpperCase()));
          
          let letterIndex = 0;
 
-         // 남은 단어들을 "하나의 플렉스 흐름"으로 렌더링 (줄바꿈 강제 안 함)
-         const remainingElements = remainingWords.flatMap((word, idx) => {
-             const wordLen = word.length;
-             const currentLetters = selectedLetters.slice(letterIndex, letterIndex + wordLen);
-             letterIndex += wordLen;
-             const emptyCount = Math.max(0, wordLen - currentLetters.length);
-             const emptySlots = Array(emptyCount).fill(0);
+         // 남은 단어들을 "각자 한 줄씩" 렌더링 (구조 힌트)
+         inputArea = (
+            <div className="flex flex-col gap-2 w-full items-center">
+                {remainingWords.map((word, idx) => {
+                    const wordLen = word.length;
+                    // 현재 입력된 글자를 순서대로 할당 (단순 표시용)
+                    const currentLetters = selectedLetters.slice(letterIndex, letterIndex + wordLen);
+                    letterIndex += wordLen;
+                    
+                    const emptyCount = Math.max(0, wordLen - currentLetters.length);
+                    const emptySlots = Array(emptyCount).fill(0);
 
-             return [
-                 ...currentLetters.map(l => (
-                    <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-indigo-600 bg-indigo-50 text-indigo-800 rounded-t-lg flex items-center justify-center text-xl font-black -translate-y-1">
-                        {l.char.toUpperCase()}
-                    </div>
-                 )),
-                 ...emptySlots.map((_, i) => (
-                    <div key={`empty-${idx}-${i}`} className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-gray-200 bg-gray-100 rounded-t-lg flex items-center justify-center">
-                    </div>
-                 )),
-                 // 단어 사이 간격을 위한 투명 스페이서 (선택사항, 없어도 됨)
-                 <div key={`spacer-${idx}`} className="w-2"></div>
-             ];
-         });
-         
-         inputArea = remainingElements;
+                    return (
+                        <div key={`rem-${idx}`} className="flex gap-1 justify-center flex-wrap min-h-[50px]">
+                            {/* 입력된 글자 */}
+                            {currentLetters.map(l => (
+                                <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-indigo-600 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center text-base font-bold -translate-y-1">
+                                    {l.char.toUpperCase()}
+                                </div>
+                            ))}
+                            {/* 빈칸 */}
+                            {emptySlots.map((_, i) => (
+                                <div key={`empty-${i}`} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-gray-200 bg-gray-100 rounded-lg flex items-center justify-center">
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })}
+            </div>
+         );
     }
 
-    // [최종 레이아웃] : Solved + Input을 하나의 Flex 컨테이너에 넣어서 
-    // 정답을 맞출 때마다 위아래로 나뉘지 않고 자연스럽게 옆으로 붙거나 줄바꿈되게 함.
-    // 이것이 "Layout Stability"의 핵심.
-    
     return (
-        <div className="flex flex-wrap gap-1 md:gap-2 w-full justify-center items-center min-h-[60px]">
-            {solvedArea}
+        <div className="flex flex-col w-full items-center">
+            {/* 이미 맞춘 단어는 위쪽에 쌓임 */}
+            <div className="flex flex-col gap-2 w-full items-center mb-4">{solvedArea}</div>
+            {/* 입력 공간 */}
             {inputArea}
-            {selectedLetters.length === 0 && solvedWordsData.length === 0 && ( 
-                <span className="text-gray-300 text-xs font-bold tracking-widest animate-pulse uppercase">TAP LETTERS</span> 
-            )}
         </div>
     );
-
   }, [currentWord, selectedLetters, solvedWordsData, isCorrect, isFlashing, hintStage]);
 
   return (
@@ -510,10 +526,13 @@ const WordGuessGame = () => {
           {scrambledLetters.length === 0 && !isCorrect && ( <div className="text-gray-300 text-xs font-bold italic py-4">All letters placed</div> )}
         </div>
         <div className="w-full h-px bg-gray-100 mb-8 relative"> <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-gray-300 text-[10px] font-bold">ANSWER</span> </div>
-        <div className="w-full flex-grow flex flex-col justify-start items-center mb-6">
+        
+        {/* [크기 고정] 정답 영역이 커졌다 작아졌다 하지 않도록 min-h 고정 */}
+        <div className="w-full flex-grow flex flex-col justify-start items-center mb-6 min-h-[200px]">
             {renderedAnswerArea}
             {(isCorrect || message) && ( <div className={`mt-4 font-black text-sm tracking-widest animate-bounce ${isCorrect ? 'text-green-500' : 'text-amber-500'}`}>{message || 'EXCELLENT!'}</div> )}
         </div>
+        
         <div className="w-full mt-auto pt-4 border-t border-gray-50">
           {isCorrect ? (
             <button onClick={processNextLevel} className="w-full py-4 bg-green-500 text-white rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 hover:bg-green-600 active:scale-95 transition-all">NEXT LEVEL <ArrowRight size={24}/></button>
