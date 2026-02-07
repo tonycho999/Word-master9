@@ -1,5 +1,4 @@
-// src/hooks/useGameLogic.js
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // useMemo 제거됨
 import { wordDatabase, twoWordDatabase, threeWordDatabase, fourWordDatabase, fiveWordDatabase, LEVEL_CONFIG } from '../data/wordDatabase';
 
 export const useGameLogic = (playSound, level, score, setScore, setMessage) => {
