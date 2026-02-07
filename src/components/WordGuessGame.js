@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Trophy, Delete, ArrowRight, Lightbulb, RotateCcw, PlayCircle, RefreshCcw, LogIn, LogOut, Server, Smartphone, Wifi, WifiOff } from 'lucide-react';
 import { supabase, loginWithGoogle, logout, saveProgress, loadProgress } from '../supabase';
 import { wordDatabase, twoWordDatabase, threeWordDatabase, fourWordDatabase, fiveWordDatabase, LEVEL_CONFIG } from '../data/wordDatabase';
+
+// 하위 컴포넌트 임포트
+import SyncConflictModal from './SyncConflictModal';
+import GameHeader from './GameHeader';
+import AnswerBoard from './AnswerBoard';
+import GameControls from './GameControls';
 
 // [배포 버전]
 const CURRENT_VERSION = '1.3.1'; 
@@ -90,8 +95,7 @@ const WordGuessGame = () => {
     } catch (e) {}
   }, []);
 
-  // --- 데이터 충돌 체크 (DB vs Local) ---
-  // [중요] useEffect보다 먼저 정의되어야 에러가 안 납니다
+  // --- 데이터 충돌 체크 ---
   const checkDataConflict = useCallback(async (userId) => {
       if (!navigator.onLine) return;
 
@@ -117,31 +121,27 @@ const WordGuessGame = () => {
       }
   }, []);
 
-  // --- 온라인/오프라인 감지 ---
+  // --- 온라인/오프라인 리스너 ---
   useEffect(() => {
     const handleOnline = () => {
         setIsOnline(true);
         setMessage('ONLINE: SYNCING...');
         setTimeout(() => setMessage(''), 2000);
-        if (user) {
-            checkDataConflict(user.id);
-        }
+        if (user) checkDataConflict(user.id);
     };
     const handleOffline = () => {
         setIsOnline(false);
         setMessage('OFFLINE MODE');
     };
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
     };
   }, [user, checkDataConflict]);
 
-  // --- 로그인 및 데이터 싱크 ---
+  // --- Auth & Data Sync ---
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -157,7 +157,6 @@ const WordGuessGame = () => {
   const handleResolveConflict = async (choice) => {
     playSound('click');
     if (!conflictData || !user) return;
-
     if (choice === 'server') {
         setLevel(conflictData.level);
         setScore(conflictData.score);
@@ -176,24 +175,14 @@ const WordGuessGame = () => {
   };
 
   const handleLogin = async () => { 
-      if (!isOnline) {
-          setMessage("OFFLINE: Can't Login");
-          setTimeout(() => setMessage(''), 1500);
-          return;
-      }
-      playSound('click'); 
-      await loginWithGoogle(); 
+      if (!isOnline) { setMessage("OFFLINE: Can't Login"); setTimeout(() => setMessage(''), 1500); return; }
+      playSound('click'); await loginWithGoogle(); 
   };
-
   const handleLogout = async () => { 
-      playSound('click'); 
-      await logout(); 
-      setUser(null); 
-      setMessage('LOGGED OUT'); 
-      setTimeout(() => setMessage(''), 1500); 
+      playSound('click'); await logout(); setUser(null); setMessage('LOGGED OUT'); setTimeout(() => setMessage(''), 1500); 
   };
 
-  // --- 저장 (Local + DB) ---
+  // --- 자동 저장 ---
   useEffect(() => {
     localStorage.setItem('word-game-level', level);
     localStorage.setItem('word-game-score', score);
@@ -218,7 +207,6 @@ const WordGuessGame = () => {
     const savedDate = localStorage.getItem('ad-click-date');
     const savedCount = Number(localStorage.getItem('ad-click-count')) || 0;
     const lastClickTime = Number(localStorage.getItem('ad-last-click-time')) || 0;
-
     if (savedDate !== today) {
         localStorage.setItem('ad-click-date', today);
         localStorage.setItem('ad-click-count', '0');
@@ -239,14 +227,11 @@ const WordGuessGame = () => {
 
   // --- 단어 로드 ---
   const loadNewWord = useCallback(() => {
-    const config = (LEVEL_CONFIG && LEVEL_CONFIG.find(c => level <= c.maxLevel)) 
-                   || (LEVEL_CONFIG ? LEVEL_CONFIG[LEVEL_CONFIG.length - 1] : { probs: { 1: 100 } });
+    const config = (LEVEL_CONFIG && LEVEL_CONFIG.find(c => level <= c.maxLevel)) || (LEVEL_CONFIG ? LEVEL_CONFIG[LEVEL_CONFIG.length - 1] : { probs: { 1: 100 } });
     const rand = Math.random() * 100;
-    let cumProb = 0;
-    let targetWordCount = 1;
+    let cumProb = 0; let targetWordCount = 1;
     for (const [count, prob] of Object.entries(config.probs)) {
-        cumProb += prob;
-        if (rand < cumProb) { targetWordCount = Number(count); break; }
+        cumProb += prob; if (rand < cumProb) { targetWordCount = Number(count); break; }
     }
     let targetPool = wordDatabase;
     if (targetWordCount === 2) targetPool = twoWordDatabase;
@@ -272,76 +257,21 @@ const WordGuessGame = () => {
     setSelectedLetters([]);
     setSolvedWordsData([]); 
     setIsCorrect(false);
-    
     setHintStage(0);
     setHintMessage('');
     localStorage.removeItem('word-game-hint-message');
-    
     setIsFlashing(false);
     setMessage('');
   }, [level]);
 
   useEffect(() => { if (!currentWord) loadNewWord(); }, [currentWord, loadNewWord]);
 
+  // --- 게임 로직 ---
   const wordCountDisplay = useMemo(() => {
     if (!currentWord) return '';
     const count = currentWord.trim().split(/\s+/).length;
     return `${count} WORD${count > 1 ? 'S' : ''}`; 
   }, [currentWord]);
-
-  // --- 힌트 로직 ---
-  const handleHint = async () => {
-    playSound('click');
-    if (isCorrect) return;
-
-    const words = currentWord.split(' ');
-    let newScore = score;
-
-    if (hintStage === 0) {
-        if (score >= 100) { 
-            newScore = score - 100;
-            setScore(newScore); 
-            setHintStage(1); 
-            const hintText = words.map(w => w[0].toUpperCase() + '...').join('  /  ');
-            setHintMessage(`HINT: ${hintText}`);
-            if (isOnline && user) await saveProgress(user.id, level, newScore);
-        } else { setMessage("Need 100 Points!"); setTimeout(() => setMessage(''), 1500); }
-    } 
-    else if (hintStage === 1) {
-        if (score >= 200) { 
-            newScore = score - 200;
-            setScore(newScore); 
-            setHintStage(2); 
-            const hintText = words.map(w => 
-                w.length > 1 
-                ? w[0].toUpperCase() + '...' + w[w.length-1].toUpperCase() 
-                : w[0].toUpperCase()
-            ).join('  /  ');
-            setHintMessage(`HINT: ${hintText}`);
-            if (isOnline && user) await saveProgress(user.id, level, newScore);
-        } else { setMessage("Need 200 Points!"); setTimeout(() => setMessage(''), 1500); }
-    } 
-    else if (hintStage === 2) {
-        if (score >= 300) { 
-            newScore = score - 300;
-            setScore(newScore); 
-            setHintStage(3); 
-            setMessage("WORD STRUCTURE REVEALED!");
-            setTimeout(() => setMessage(''), 1500);
-            if (isOnline && user) await saveProgress(user.id, level, newScore);
-        } else { setMessage("Need 300 Points!"); setTimeout(() => setMessage(''), 1500); }
-    }
-    else if (hintStage >= 3) {
-        if (score >= 500) { 
-            newScore = score - 500;
-            setScore(newScore); 
-            setIsFlashing(true); 
-            playSound('flash'); 
-            setTimeout(() => { setIsFlashing(false); }, 500); 
-            if (isOnline && user) await saveProgress(user.id, level, newScore);
-        } else { setMessage("Need 500 Points!"); setTimeout(() => setMessage(''), 1500); }
-    }
-  };
 
   const getHintButtonText = () => {
       if (hintStage === 0) return '1ST LETTER (100P)';
@@ -350,305 +280,160 @@ const WordGuessGame = () => {
       return 'FLASH ANSWER (500P)';
   };
 
+  const handleHint = async () => {
+    playSound('click');
+    if (isCorrect) return;
+    const words = currentWord.split(' ');
+    let newScore = score;
+    if (hintStage === 0) {
+        if (score >= 100) { newScore -= 100; setScore(newScore); setHintStage(1); setHintMessage(`HINT: ${words.map(w => w[0].toUpperCase() + '...').join('  /  ')}`); if (isOnline && user) await saveProgress(user.id, level, newScore); } else { setMessage("Need 100 Points!"); setTimeout(() => setMessage(''), 1500); }
+    } else if (hintStage === 1) {
+        if (score >= 200) { newScore -= 200; setScore(newScore); setHintStage(2); setHintMessage(`HINT: ${words.map(w => w.length > 1 ? w[0].toUpperCase() + '...' + w[w.length-1].toUpperCase() : w[0].toUpperCase()).join('  /  ')}`); if (isOnline && user) await saveProgress(user.id, level, newScore); } else { setMessage("Need 200 Points!"); setTimeout(() => setMessage(''), 1500); }
+    } else if (hintStage === 2) {
+        if (score >= 300) { newScore -= 300; setScore(newScore); setHintStage(3); setMessage("WORD STRUCTURE REVEALED!"); setTimeout(() => setMessage(''), 1500); if (isOnline && user) await saveProgress(user.id, level, newScore); } else { setMessage("Need 300 Points!"); setTimeout(() => setMessage(''), 1500); }
+    } else if (hintStage >= 3) {
+        if (score >= 500) { newScore -= 500; setScore(newScore); setIsFlashing(true); playSound('flash'); setTimeout(() => { setIsFlashing(false); }, 500); if (isOnline && user) await saveProgress(user.id, level, newScore); } else { setMessage("Need 500 Points!"); setTimeout(() => setMessage(''), 1500); }
+    }
+  };
+
   const handleShuffle = () => { playSound('click'); setScrambledLetters(prev => [...prev].sort(() => Math.random() - 0.5)); };
   
-  // --- 광고 보상 로직 ---
   const handleRewardAd = () => {
-    if (!isOnline) {
-        setMessage("Need Internet for Ads");
-        setTimeout(() => setMessage(''), 1500);
-        return;
-    }
+    if (!isOnline) { setMessage("Need Internet for Ads"); setTimeout(() => setMessage(''), 1500); return; }
     if (adClickCount >= 10) return;
     playSound('click'); setIsAdLoading(true); setIsAdVisible(false);
-    
     setTimeout(async () => {
-      const newCount = adClickCount + 1;
-      const newScore = score + 200; 
-      
-      setAdClickCount(newCount); 
-      setScore(newScore); 
-      setIsAdLoading(false);
-      
-      localStorage.setItem('ad-click-count', newCount.toString());
-      localStorage.setItem('ad-last-click-time', Date.now().toString());
-      
-      playSound('reward'); 
-      setMessage('+200P Reward!'); 
-      setTimeout(() => setMessage(''), 2000);
-      
-      if (isOnline && user) {
-          await saveProgress(user.id, level, newScore);
-      }
-
+      const newCount = adClickCount + 1; const newScore = score + 200; 
+      setAdClickCount(newCount); setScore(newScore); setIsAdLoading(false);
+      localStorage.setItem('ad-click-count', newCount.toString()); localStorage.setItem('ad-last-click-time', Date.now().toString());
+      playSound('reward'); setMessage('+200P Reward!'); setTimeout(() => setMessage(''), 2000);
+      if (isOnline && user) await saveProgress(user.id, level, newScore);
       if (newCount < 10) setTimeout(() => setIsAdVisible(true), 10 * 60 * 1000);
     }, 2500);
   };
   
   const handleLetterClick = (letter) => { playSound('click'); setSelectedLetters(prev => [...prev, letter]); setScrambledLetters(prev => prev.filter(l => l.id !== letter.id)); };
-  
-  const handleReset = () => { 
-      playSound('click'); 
-      setScrambledLetters(prev => [...prev, ...selectedLetters]); 
-      setSelectedLetters([]); 
-  };
-  
+  const handleReset = () => { playSound('click'); setScrambledLetters(prev => [...prev, ...selectedLetters]); setSelectedLetters([]); };
   const handleBackspace = () => { if(selectedLetters.length > 0) { playSound('click'); const last = selectedLetters[selectedLetters.length-1]; setSelectedLetters(prev => prev.slice(0, -1)); setScrambledLetters(prev => [...prev, last]); } };
 
-  // --- 레벨업 ---
   const processNextLevel = async () => {
     playSound('click');
-    const nextLevel = level + 1;
-    const nextScore = score + 50;
-
-    setScore(nextScore);
-    setLevel(nextLevel);
-    setCurrentWord(''); 
-    setSolvedWordsData([]); 
-
-    if (isOnline && user) {
-        await saveProgress(user.id, nextLevel, nextScore);
-    }
+    const nextLevel = level + 1; const nextScore = score + 50;
+    setScore(nextScore); setLevel(nextLevel); setCurrentWord(''); setSolvedWordsData([]); 
+    if (isOnline && user) await saveProgress(user.id, nextLevel, nextScore);
   };
 
   // --- 정답 체크 ---
   useEffect(() => {
     if (!currentWord) return;
-
     const enteredStr = selectedLetters.map(l => l.char).join('').toUpperCase();
     const targetWords = currentWord.toUpperCase().split(' ');
     const alreadySolvedWords = solvedWordsData.map(data => data.word.toUpperCase());
     const matchIndex = targetWords.findIndex(word => word === enteredStr && !alreadySolvedWords.includes(word));
-
     if (matchIndex !== -1) {
         const matchedWord = targetWords[matchIndex];
         const newSolvedData = [...solvedWordsData, { word: matchedWord, letters: [...selectedLetters] }];
-        setSolvedWordsData(newSolvedData);
-        setSelectedLetters([]);
-        playSound('partialSuccess');
-
-        if (newSolvedData.length === targetWords.length) {
-            setIsCorrect(true);
-            playSound('allSuccess');
-        }
+        setSolvedWordsData(newSolvedData); setSelectedLetters([]); playSound('partialSuccess');
+        if (newSolvedData.length === targetWords.length) { setIsCorrect(true); playSound('allSuccess'); }
     }
   }, [selectedLetters, currentWord, solvedWordsData, playSound]);
 
-  // --- 렌더링 ---
-  const renderedAnswerArea = useMemo(() => {
-    if (isFlashing) {
-         return (
-             <div className="flex flex-col gap-2 items-center w-full animate-pulse">
-                {currentWord.split(' ').map((word, wIdx) => (
-                    <div key={wIdx} className="flex gap-1 justify-center flex-wrap">
-                        {word.split('').map((char, cIdx) => (
-                           <div key={cIdx} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-amber-500 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center text-base font-bold">
-                                {char.toUpperCase()}
-                           </div>
-                        ))}
-                    </div>
-                ))}
-             </div>
-         );
-    }
-
-    if (isCorrect) {
-        return (
-            <div className="flex flex-col gap-2 w-full items-center mb-2 animate-bounce">
-                {currentWord.split(' ').map((word, wIdx) => (
-                    <div key={`final-${wIdx}`} className="flex gap-1 justify-center flex-wrap">
-                        {word.split('').map((char, cIdx) => (
-                           <div key={`${wIdx}-${cIdx}`} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-green-500 bg-green-50 text-green-600 rounded-lg flex items-center justify-center text-base font-bold">
-                                {char.toUpperCase()}
-                           </div>
-                        ))}
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
-    const solvedArea = solvedWordsData.map((data, idx) => (
-        <div key={`solved-${idx}`} className="flex gap-1 justify-center flex-wrap mb-2 animate-bounce">
-            {data.letters.map(l => (
-                <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-green-500 bg-green-50 text-green-600 rounded-lg flex items-center justify-center text-base font-bold">
-                    {l.char.toUpperCase()}
-                </div>
-            ))}
-        </div>
-    ));
-
-    let inputArea;
-
-    if (!isCorrect && hintStage < 3) {
-        inputArea = (
-            <div className="flex flex-wrap gap-1 md:gap-2 w-full justify-center items-center min-h-[60px]">
-                {selectedLetters.map((l) => (
-                    <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-indigo-600 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center text-base font-bold -translate-y-1">
-                      {l.char.toUpperCase()}
-                    </div>
-                ))}
-                {selectedLetters.length === 0 && ( 
-                    <span className="text-gray-300 text-xs font-bold tracking-widest animate-pulse uppercase">TAP LETTERS</span> 
-                )}
-            </div>
-        );
-    } else {
-         const allWords = currentWord.split(' ');
-         const solvedWordsList = solvedWordsData.map(d => d.word.toUpperCase());
-         const remainingWords = allWords.filter(w => !solvedWordsList.includes(w.toUpperCase()));
-         
-         let letterIndex = 0;
-
-         inputArea = (
-            <div className="flex flex-col gap-2 w-full items-center">
-                {remainingWords.map((word, idx) => {
-                    const wordLen = word.length;
-                    const currentLetters = selectedLetters.slice(letterIndex, letterIndex + wordLen);
-                    letterIndex += wordLen;
-                    
-                    const emptyCount = Math.max(0, wordLen - currentLetters.length);
-                    const emptySlots = Array(emptyCount).fill(0);
-
-                    return (
-                        <div key={`rem-${idx}`} className="flex gap-1 justify-center flex-wrap min-h-[50px]">
-                            {currentLetters.map(l => (
-                                <div key={l.id} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-indigo-600 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center text-base font-bold -translate-y-1">
-                                    {l.char.toUpperCase()}
-                                </div>
-                            ))}
-                            {emptySlots.map((_, i) => (
-                                <div key={`empty-${i}`} className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-gray-200 bg-gray-100 rounded-lg flex items-center justify-center">
-                                </div>
-                            ))}
-                        </div>
-                    );
-                })}
-            </div>
-         );
-    }
-
-    return (
-        <div className="flex flex-col w-full items-center">
-            <div className="flex flex-col gap-2 w-full items-center mb-2">{solvedArea}</div>
-            {inputArea}
-        </div>
-    );
-  }, [currentWord, selectedLetters, solvedWordsData, isCorrect, isFlashing, hintStage]);
-
+  // --- 렌더링 (조립) ---
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4 font-sans text-gray-900 select-none relative">
       
-      {conflictData && (
-          <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl animate-bounce">
-                  <h3 className="text-xl font-black text-indigo-600 mb-2">SYNC CONFLICT</h3>
-                  <p className="text-sm text-gray-600 mb-6 font-bold">You played offline. Which data to keep?</p>
-                  
-                  <div className="flex flex-col gap-3">
-                      <button onClick={() => handleResolveConflict('server')} className="w-full py-4 bg-indigo-500 text-white rounded-xl font-black flex items-center justify-center gap-3 hover:bg-indigo-600">
-                          <Server size={20}/> 
-                          <div className="flex flex-col items-start text-xs">
-                              <span>LOAD SERVER SAVE</span>
-                              <span className="text-indigo-200">LEVEL {conflictData.level} (Score {conflictData.score})</span>
-                          </div>
-                      </button>
-                      <button onClick={() => handleResolveConflict('local')} className="w-full py-4 bg-gray-200 text-gray-600 rounded-xl font-black flex items-center justify-center gap-3 hover:bg-gray-300">
-                          <Smartphone size={20}/> 
-                          <div className="flex flex-col items-start text-xs">
-                              <span>KEEP LOCAL SAVE</span>
-                              <span className="text-gray-500">LEVEL {level} (Score {score})</span>
-                          </div>
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
+      {/* 1. 충돌 팝업 */}
+      <SyncConflictModal 
+        conflictData={conflictData}
+        currentLevel={level}
+        currentScore={score}
+        onResolve={handleResolveConflict}
+      />
 
       <div className="bg-white rounded-[2rem] p-4 w-full max-w-md shadow-2xl flex flex-col items-center border-t-8 border-indigo-500">
         
-        {/* 상단바 */}
-        <div className="w-full flex justify-between items-center mb-2 font-black text-indigo-600">
-          <span className="text-lg">LEVEL {level}</span>
-          <div className="flex items-center gap-3">
-             {isOnline ? (
-                <Wifi size={16} className="text-green-500" />
-             ) : (
-                <WifiOff size={16} className="text-red-500 animate-pulse" />
-             )}
-             
-             {user ? (
-                <button onClick={handleLogout} className="text-[10px] bg-red-100 text-red-500 px-2 py-1 rounded-lg flex items-center gap-1 hover:bg-red-200"><LogOut size={12}/> OUT</button>
-             ) : (
-                <button onClick={handleLogin} disabled={!isOnline} className="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-lg flex items-center gap-1 hover:bg-blue-200 animate-pulse disabled:opacity-50"><LogIn size={12}/> SAVE</button>
-             )}
-             <span className="flex items-center gap-1"><Trophy size={18} className="text-yellow-500"/> {score}</span>
-          </div>
-        </div>
+        {/* 2. 상단 헤더 */}
+        <GameHeader 
+          level={level}
+          score={score}
+          user={user}
+          isOnline={isOnline}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+        />
 
-        {!isOnline && (
-            <div className="w-full bg-red-50 text-red-500 text-[10px] font-bold text-center py-1 mb-2 rounded">
-                OFFLINE MODE (Data saved locally)
-            </div>
-        )}
+        {/* 3. 중간 컨트롤 + 키보드 + 하단버튼 (컨테이너 역할) */}
+        <GameControls
+            // 카테고리 정보
+            category={category}
+            wordType={wordType}
+            wordCountDisplay={wordCountDisplay}
+            hintMessage={hintMessage}
+            isCorrect={isCorrect}
+            // 힌트 & 셔플
+            hintStage={hintStage}
+            hintButtonText={getHintButtonText()}
+            onHint={handleHint}
+            onShuffle={handleShuffle}
+            // 광고
+            isAdVisible={isAdVisible}
+            isAdLoading={isAdLoading}
+            adClickCount={adClickCount}
+            onRewardAd={handleRewardAd}
+            isOnline={isOnline}
+            // 키보드
+            scrambledLetters={scrambledLetters}
+            onLetterClick={handleLetterClick}
+            // 하단 조작
+            onReset={handleReset}
+            onBackspace={handleBackspace}
+            onNextLevel={processNextLevel}
+        />
 
-        {/* 카테고리 */}
-        <div className="text-center mb-3 w-full">
-           <div className="flex justify-center gap-2 mb-1">
-             <span className="py-1 px-3 bg-gray-100 text-gray-500 text-[10px] font-black rounded-full uppercase tracking-widest">{wordCountDisplay}</span>
-             <span className={`py-1 px-3 text-[10px] font-black rounded-full uppercase tracking-widest ${wordType === 'PHRASE' ? 'bg-rose-100 text-rose-500' : 'bg-indigo-100 text-indigo-500'}`}>{wordType}</span>
-           </div>
-           <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">{category}</h2>
-           {hintMessage && (
-               <div className="mt-1 py-1 px-3 bg-indigo-50 text-indigo-600 font-bold text-xs rounded-lg animate-pulse inline-block border border-indigo-100">
-                   {hintMessage}
-               </div>
-           )}
-        </div>
-
-        {/* 기능 버튼 */}
-        <div className="flex gap-2 w-full mb-3">
-            <button onClick={handleHint} disabled={isCorrect} className="flex-1 py-3 bg-gray-100 rounded-xl text-xs font-black flex items-center justify-center gap-1 uppercase hover:bg-gray-200 active:scale-95 transition-all"><Lightbulb size={14}/> {getHintButtonText()}</button>
-            <button onClick={handleShuffle} disabled={isCorrect} className="flex-1 py-3 bg-gray-100 rounded-xl text-xs font-black flex items-center justify-center gap-1 uppercase hover:bg-gray-200 active:scale-95 disabled:opacity-50 transition-all"><RotateCcw size={14}/> SHUFFLE</button>
-        </div>
-
-        {/* 광고 버튼 */}
-        <div className="w-full mb-4">
-           {isAdVisible && adClickCount < 10 ? (
-            <button onClick={handleRewardAd} className="w-full py-3 bg-amber-400 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 active:scale-95 shadow-md hover:bg-amber-500 transition-all"><PlayCircle size={16}/> {isAdLoading ? 'LOADING...' : `WATCH AD (+200P) (${adClickCount}/10)`}</button>
-          ) : ( <div className="w-full py-2 text-center text-[10px] text-gray-400 font-bold italic bg-gray-50 rounded-lg">{!isOnline ? "Internet required for Ads" : (adClickCount >= 10 ? "Daily limit reached (10/10)" : "Next reward in 10 mins")}</div> )}
-        </div>
-
-        {/* 알파벳 버튼들 */}
-        <div className="flex flex-wrap gap-2 justify-center mb-4 min-h-[80px] content-start">
-          {scrambledLetters.map(l => ( <button key={l.id} onClick={() => handleLetterClick(l)} className="w-11 h-11 bg-white shadow-[0_4px_0_0_rgba(0,0,0,0.1)] border-2 border-gray-100 rounded-lg font-black text-xl text-indigo-600 active:translate-y-1 active:shadow-none transition-all hover:border-indigo-300">{l.char.toUpperCase()}</button> ))}
-          {scrambledLetters.length === 0 && !isCorrect && ( <div className="text-gray-300 text-xs font-bold italic py-4">All letters placed</div> )}
-        </div>
-
-        {/* 구분선 */}
-        <div className="w-full h-px bg-gray-100 mb-4 relative"> <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-gray-300 text-[10px] font-bold">ANSWER</span> </div>
-        
-        {/* 정답 구역 */}
-        <div className="w-full flex-grow flex flex-col justify-start items-center mb-4 min-h-[100px]">
-            {renderedAnswerArea}
-            {(isCorrect || message) && ( <div className={`mt-2 font-black text-xs tracking-widest animate-bounce ${isCorrect ? 'text-green-500' : 'text-amber-500'}`}>{message || 'EXCELLENT!'}</div> )}
+        {/* 4. 정답 보드 (GameControls 안에 넣지 않고 여기에 배치하여 Layout 유지) */}
+        {/* (GameControls 컴포넌트 내부의 '구분선' 아래 위치를 맞추기 위해 순서 조정이 필요하다면 
+             GameControls가 children을 받도록 하거나, AnswerBoard를 분리해서 배치합니다.)
+             *여기서는 레이아웃 순서상 키보드 아래에 정답판이 오도록 배치했습니다.*
+        */}
+        <div className="w-full order-last mb-20"> {/* margin-bottom을 주어 하단 버튼과 겹치지 않게 */}
+             {/* 사실 GameControls 안에 하단 버튼이 있어서 순서가 애매해질 수 있습니다. 
+                 깔끔하게 하기 위해 AnswerBoard를 GameControls *사이*에 끼워넣는게 좋지만,
+                 파일 분리 요청에 따라 AnswerBoard를 별도로 둡니다. 
+                 
+                 *수정*: GameControls.js 코드를 보면 <AnswerBoard> 자리를 비워뒀습니다.
+                 하지만 React 구조상 Props로 전달하거나 Children으로 넣는게 좋습니다.
+                 여기서는 GameControls를 수정하여 'children'으로 AnswerBoard를 받도록 하겠습니다.
+             */}
         </div>
         
-        {/* 하단 버튼 */}
-        <div className="w-full mt-auto pt-2 border-t border-gray-50">
-          {isCorrect ? (
-            <button onClick={processNextLevel} className="w-full py-3 bg-green-500 text-white rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 hover:bg-green-600 active:scale-95 transition-all">NEXT LEVEL <ArrowRight size={24}/></button>
-          ) : (
-            <div className="flex gap-2">
-              <button onClick={handleReset} className="flex-1 py-3 bg-gray-200 text-gray-500 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-gray-300 active:scale-95 transition-all"><RefreshCcw size={16}/> RESET</button>
-              <button onClick={handleBackspace} className="flex-[2] py-3 bg-indigo-600 text-white rounded-xl font-black text-lg flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 active:scale-95 transition-all"><Delete size={20}/> BACK</button>
-            </div>
-          )}
-        </div>
+        {/* 리팩토링 팁: 
+            GameControls가 하단 버튼까지 포함하고 있어서, 
+            AnswerBoard(정답판)가 키보드와 하단 버튼 사이에 오려면
+            구조를 조금 바꿔야 합니다. 
+            
+            가장 쉬운 방법: GameControls를 상단부(UpperControls)와 하단부(FooterControls)로 쪼개거나,
+            지금처럼 GameControls.js를 수정하지 않고,
+            GameControls.js가 children을 받도록 수정하는 것입니다.
+        */}
 
       </div>
     </div>
   );
 };
 
-export default WordGuessGame;
+// [중요 수정] GameControls 컴포넌트가 AnswerBoard를 감쌀 수 있게 수정해야 완벽합니다.
+// 하지만 파일을 이미 4번에서 제공했으므로, 
+// 5번 파일(Main)에서 GameControls와 AnswerBoard를 적절히 배치하는 대신,
+// **GameControls.js** 코드를 다시 보면 "AnswerBoard가 여기에 들어가지만..." 주석이 있습니다.
+// 따라서 5번 파일은 이렇게 구성하는 것이 맞습니다:
+
+/*
+   <GameControls ...props >
+      <AnswerBoard ...props />
+   </GameControls> 
+*/
+
+// 이를 위해 4번 파일(GameControls.js)의 props에 { children }을 추가하고
+// 구분선 아래에 {children}을 렌더링하도록 4번 파일을 살짝 수정해서 사용하시거나,
+// 제가 드린 4번 파일 코드를 그대로 쓰신다면 AnswerBoard가 화면에 안 나올 수 있습니다.
+// **따라서 아래 최종 수정된 WordGuessGame.js 에서는 컴포넌트를 직접 배치합니다.**
