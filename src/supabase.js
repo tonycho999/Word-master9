@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 // ----------------------------------------------------------------
-// [유지] 고객님의 주소와 키
+// [설정] 고객님의 주소와 키 (그대로 유지)
 // ----------------------------------------------------------------
 const supabaseUrl = 'https://sfepjxhwlpisdpcdklwt.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmZXBqeGh3bHBpc2RwY2RrbHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjE3NjUsImV4cCI6MjA4NTg5Nzc2NX0.murbKE8QvK9Qe2tw1BF8_XJK7bG4QWEHjmbgoACONcY';
@@ -10,7 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- 게임에서 사용할 기능들 ---
 
-// 1. 로그인 (비상용 - 메인 화면의 모달이 주로 사용됨)
+// 1. 로그인 (비상용 함수 - 실제로는 메인 화면의 모달창이 사용됨)
 export const loginWithGoogle = async () => {
   const email = window.prompt("Enter email for Magic Link:");
   if (!email) return;
@@ -30,27 +30,28 @@ export const saveProgress = async (userId, level, score, email) => {
   console.log("🚀 [저장 시도] 데이터:", { userId, level, score, email });
 
   try {
+    // DB 테이블 컬럼명에 맞춰서 데이터 준비
     const updates = {
       userid: userId,    
       level: Number(level),
       score: Number(score),
-      // updated_at: new Date(), // ★ 에러 방지를 위해 잠시 껐습니다. (DB에 컬럼 추가 후 주석 해제하세요)
+      // updated_at: new Date(), // ★ DB에 'updated_at' 컬럼을 추가하기 전까지는 주석 처리합니다.
     };
 
+    // 이메일이 있을 때만 추가 (빈 값 덮어쓰기 방지)
     if (email) {
       updates.email = email;
     }
 
-    // DB에 저장 요청
+    // DB에 저장 요청 (upsert: 없으면 생성, 있으면 수정)
     const { data, error } = await supabase
       .from('game_progress') 
-      .upsert(updates, { onConflict: 'userid' })
+      .upsert(updates, { onConflict: 'userid' }) // userid가 같으면 덮어쓰기
       .select(); 
 
-    // 에러 발생 시 알림
+    // 에러 발생 시 알림창 띄우기 (디버깅용)
     if (error) {
       console.error("❌ [저장 실패] DB 에러:", error); 
-      // 에러 메시지를 띄워서 원인을 파악합니다.
       alert("데이터 저장 실패!\n원인: " + error.message);
       throw error;
     }
@@ -69,7 +70,7 @@ export const loadProgress = async (userId) => {
       .from('game_progress')
       .select('*')
       .eq('userid', userId)
-      .maybeSingle(); 
+      .maybeSingle(); // 데이터가 없으면 null 반환 (에러 아님)
 
     if (error) {
       console.error("불러오기 에러:", error);
