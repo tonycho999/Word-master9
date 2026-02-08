@@ -124,7 +124,7 @@ const WordGuessGame = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4 font-sans text-gray-900 select-none relative">
       
-      {/* ★ [SEO] og-image.png 및 공유 설정 추가됨 */}
+      {/* ★ [SEO] Helmet 설정 유지 */}
       <Helmet>
         <title>{`Word Master - Level ${level} (영어 단어 퍼즐)`}</title>
         <meta name="description" content={`Word Master Level ${level} 도전 중! 무료로 즐기는 영어 단어 퀴즈 게임입니다.`} />
@@ -169,10 +169,18 @@ const WordGuessGame = () => {
         </GameControls>
       </div>
 
+      {/* ★ [수정됨] Privacy Policy 및 Terms 링크 추가 */}
       {level === 1 && (
         <footer className="mt-8 text-center max-w-md mx-auto opacity-20 text-indigo-100 selection:bg-transparent pointer-events-none">
           <h1 className="text-[10px] font-bold mb-1">Word Master</h1>
-          <p className="text-[8px] px-4">Improve your English vocabulary with 1000+ levels.</p>
+          <p className="text-[8px] px-4 mb-2">Improve your English vocabulary with 1000+ levels.</p>
+          
+          {/* pointer-events-auto를 줘서 클릭 가능하게 만듦 */}
+          <div className="flex justify-center gap-3 text-[8px] pointer-events-auto">
+             <a href="/privacy.html" target="_blank" rel="noreferrer" className="hover:text-white underline">Privacy Policy</a>
+             <span>•</span>
+             <a href="/terms.html" target="_blank" rel="noreferrer" className="hover:text-white underline">Terms of Service</a>
+          </div>
         </footer>
       )}
     </div>
