@@ -5,7 +5,7 @@ const GameControls = ({
   category, wordType, wordCountDisplay,
   hintMessage, isCorrect, hintStage, hintButtonText,
   onHint, onShuffle, 
-  isAdVisible, isAdLoading, adClickCount, onRewardAd, isOnline, adCooldown, // adCooldown 추가됨
+  isAdVisible, isAdLoading, adClickCount, onRewardAd, isOnline, adCooldown,
   scrambledLetters, onLetterClick, onReset, onBackspace, onNextLevel,
   children 
 }) => {
@@ -20,12 +20,18 @@ const GameControls = ({
   return (
     <div className="w-full flex flex-col items-center">
       
-      {/* 1. 정보 표시 */}
+      {/* 1. 정보 표시 (단어 수 / 타입) */}
       <div className="flex items-center gap-2 mb-1">
         <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase">
           {wordCountDisplay}
         </span>
-        <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase">
+        
+        {/* ★ [수정] NORMAL은 파란색, PHRASE는 붉은색 배경 적용 */}
+        <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase ${
+          wordType === 'NORMAL' 
+            ? 'bg-blue-100 text-blue-600'  // Normal: 파란색
+            : 'bg-red-100 text-red-600'    // Phrase: 붉은색
+        }`}>
           {wordType}
         </span>
       </div>
@@ -65,16 +71,14 @@ const GameControls = ({
         </div>
       )}
 
-      {/* 5. 광고 버튼 (카운트다운 기능 추가) */}
+      {/* 5. 광고 버튼 (카운트다운) */}
       {!isCorrect && (
         <div className="w-full px-2 mb-3">
           {adCooldown > 0 ? (
-             // 쿨타임 중일 때: 회색 버튼 + 시간 표시
              <button disabled className="w-full bg-gray-200 text-gray-500 py-1.5 rounded-lg font-black text-[10px] flex items-center justify-center gap-2 cursor-not-allowed">
                <Clock size={14} /> WAIT {formatTime(adCooldown)}
              </button>
           ) : (
-             // 활성화 상태
              <button 
                onClick={onRewardAd} disabled={!isOnline || isAdLoading || adClickCount >= 10}
                className="w-full bg-amber-400 hover:bg-amber-500 text-white py-1.5 rounded-lg font-black text-[10px] shadow-md shadow-amber-200 flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:grayscale"
@@ -86,15 +90,14 @@ const GameControls = ({
         </div>
       )}
 
-      {/* 6. 알파벳 버튼 (★ Flex로 변경하여 중앙 정렬 깔끔하게) */}
+      {/* 6. 알파벳 버튼 */}
       {!isCorrect && (
         <div className="w-full mb-2 px-1">
-          <div className="flex flex-wrap justify-center gap-1.5"> {/* Grid 대신 Flex 사용 */}
+          <div className="flex flex-wrap justify-center gap-1.5">
             {scrambledLetters.map((item) => (
               <button
                 key={item.id}
                 onClick={() => onLetterClick(item)}
-                // w-10 h-10 고정 크기
                 className="w-10 h-10 bg-white border-b-4 border-gray-200 active:border-b-0 active:translate-y-1 text-gray-800 font-black text-lg rounded-lg shadow-sm hover:bg-gray-50 transition-all flex items-center justify-center"
               >
                 {item.char}
