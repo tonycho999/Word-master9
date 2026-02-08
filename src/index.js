@@ -1,14 +1,15 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import ReactDOM from 'react-dom/client';
 import App from './App';
-import * as serviceWorkerRegistration from './serviceWorkerRegistration'; // 추가
+// [1] import 추가
+import { HelmetProvider } from 'react-helmet-async';
 
-ReactDOM.render(
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
   <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
+    {/* [2] App을 HelmetProvider로 감싸줍니다 */}
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
+  </React.StrictMode>
 );
-
-// unregister()에서 register()로 반드시 변경해야 설치가 활성화됩니다.
-serviceWorkerRegistration.register();
