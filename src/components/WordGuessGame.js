@@ -13,7 +13,8 @@ import GameHeader from './GameHeader';
 import GameControls from './GameControls';
 import AnswerBoard from './AnswerBoard';
 
-const CURRENT_VERSION = '1.4.2';
+// ★ 버전을 올릴 때마다 이 값을 변경하세요 (캐시 강제 삭제 트리거)
+const CURRENT_VERSION = '1.4.3';
 
 const WordGuessGame = () => {
   // [1] 기본 상태
@@ -42,9 +43,49 @@ const WordGuessGame = () => {
   const [isAdVisible, setIsAdVisible] = useState(true);
   const [isAdLoading, setIsAdLoading] = useState(false);
 
-  // 자동 저장 및 버전 관리
+  // ★ [핵심] 버전 체크 및 강제 업데이트 로직
   useEffect(() => {
-    localStorage.setItem('game-version', CURRENT_VERSION);
+    const checkVersion = async () => {
+      const savedVersion = localStorage.getItem('game-version');
+      
+      // 저장된 버전과 현재 버전이 다르면? (업데이트 발생)
+      if (savedVersion && savedVersion !== CURRENT_VERSION) {
+        console.log(`🔄 업데이트 감지: v${savedVersion} -> v${CURRENT_VERSION}`);
+        
+        // 1. 모든 캐시 삭제 (구버전 파일 제거)
+        if ('caches' in window) {
+          try {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(key => caches.delete(key)));
+          } catch (err) {
+            console.error("Cache Clear Failed", err);
+          }
+        }
+
+        // 2. 서비스 워커 등록 해제
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of registrations) {
+            await registration.unregister();
+          }
+        }
+
+        // 3. 새 버전 저장 후 페이지 강제 새로고침
+        localStorage.setItem('game-version', CURRENT_VERSION);
+        alert("새로운 업데이트가 있습니다! 최신 버전으로 로딩합니다. 🚀");
+        window.location.reload(true); // true = 서버에서 새로 받기
+        return;
+      }
+
+      // 버전이 같으면 현재 버전 저장 유지
+      localStorage.setItem('game-version', CURRENT_VERSION);
+    };
+
+    checkVersion();
+  }, []);
+
+  // 자동 저장
+  useEffect(() => {
     localStorage.setItem('word-game-level', level); 
     localStorage.setItem('word-game-score', score);
     if (auth.isOnline && auth.user && !auth.conflictData) { 
@@ -53,11 +94,11 @@ const WordGuessGame = () => {
     }
   }, [level, score, auth.isOnline, auth.user, auth.conflictData]);
 
-  // PWA 업데이트 감지 및 새로고침
+  // PWA 업데이트 감지 (index.js에서 SKIP_WAITING 보냈을 때 대응)
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log("🔄 새 버전 발견! 자동 새로고침...");
+        console.log("🔄 서비스 워커 변경 감지! 자동 새로고침...");
         window.location.reload();
       });
     }
@@ -95,7 +136,11 @@ const WordGuessGame = () => {
     playSound('click');
     const nextLevel = levelRef.current + 1; const nextScore = scoreRef.current + 50;
     setScore(nextScore); setLevel(nextLevel);
-    game.setCurrentWord(''); game.setSolvedWordsData([]);
+    
+    // 게임 상태 초기화 (Logic Hook 내부 함수 활용 권장하지만 직접 초기화 시 아래와 같음)
+    game.setCurrentWord(''); 
+    game.setSolvedWords([]); // ★ 중요: solvedWordsData -> solvedWords로 변경됨
+    
     if (auth.isOnline && auth.user) await saveProgress(auth.user.id, nextLevel, nextScore, auth.user.email);
   };
 
@@ -178,10 +223,10 @@ const WordGuessGame = () => {
             isAdVisible={isAdVisible} isAdLoading={isAdLoading} adClickCount={adClickCount} onRewardAd={handleRewardAd} isOnline={auth.isOnline}
             scrambledLetters={game.scrambledLetters} onLetterClick={game.handleLetterClick} onReset={game.handleReset} onBackspace={game.handleBackspace} onNextLevel={processNextLevel}
         >
-            {/* AnswerBoard에 필요한 Props 전달 */}
+            {/* ★ [중요 수정] solvedWordsData -> solvedWords 로 변경 */}
             <AnswerBoard 
                 currentWord={game.currentWord} 
-                solvedWordsData={game.solvedWordsData} 
+                solvedWords={game.solvedWords} // useGameLogic 수정에 맞춰 이름 변경됨
                 selectedLetters={game.selectedLetters} 
                 isCorrect={game.isCorrect} 
                 isFlashing={game.isFlashing} 
