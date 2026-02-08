@@ -3,28 +3,44 @@ import { Wifi, WifiOff, LogIn, LogOut, Download, Coins } from 'lucide-react';
 
 const GameHeader = ({ level, score, user, isOnline, onLogin, onLogout, showInstallBtn, onInstall }) => {
   return (
-    // 전체 레이아웃: 왼쪽(레벨,버튼) vs 오른쪽(상태,이메일,코인)
-    <div className="w-full flex justify-between items-end mb-6">
+    <div className="w-full flex justify-between items-center mb-6">
       
-      {/* [왼쪽] 레벨 표시 & 버튼 그룹 */}
-      <div className="flex flex-col gap-2">
-        {/* 레벨 폰트: 예전처럼 크게 (text-xl) */}
-        <span className="text-xl font-black text-indigo-600 tracking-widest uppercase italic">
-          LEVEL {level}
-        </span>
+      {/* [왼쪽] 레벨 표시 (가장 왼쪽) */}
+      <div className="text-xl font-black text-indigo-600 tracking-widest uppercase italic">
+        LEVEL {level}
+      </div>
+
+      {/* [오른쪽] 상태, 버튼, 코인 그룹 */}
+      <div className="flex flex-col items-end gap-1">
         
-        <div className="flex gap-2">
-          {/* 앱 설치 버튼 (조건부 렌더링) */}
+        {/* 1. 이메일 주소 (로그인 시에만 코인 위에 표시) */}
+        {user && (
+          <span className="text-[10px] font-bold text-gray-400 tracking-wide">
+            {user.email}
+          </span>
+        )}
+
+        {/* 2. 아이콘 및 버튼 그룹 (한 줄 배치) */}
+        <div className="flex items-center gap-3">
+          
+          {/* (1) 와이파이 아이콘 (글자 없음) */}
+          {isOnline ? (
+            <Wifi size={18} className="text-green-500" strokeWidth={3} />
+          ) : (
+            <WifiOff size={18} className="text-red-400 animate-pulse" />
+          )}
+
+          {/* (2) 앱 설치 버튼 (필요시) */}
           {showInstallBtn && (
             <button 
               onClick={onInstall} 
-              className="flex items-center gap-1 bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1.5 rounded-lg text-xs font-black transition-colors animate-pulse border border-green-200"
+              className="flex items-center gap-1 bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded-lg text-xs font-black transition-colors animate-pulse border border-green-200"
             >
               <Download size={14} strokeWidth={3} /> APP
             </button>
           )}
-          
-          {/* 로그인 상태에 따라 버튼 변경 */}
+
+          {/* (3) 로그인/로그아웃 버튼 */}
           {user ? (
             <button 
               onClick={onLogout} 
@@ -36,42 +52,20 @@ const GameHeader = ({ level, score, user, isOnline, onLogin, onLogout, showInsta
             <button 
               onClick={onLogin} 
               disabled={!isOnline}
-              className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md transition-all active:scale-95 disabled:opacity-50"
             >
               <LogIn size={14} strokeWidth={3} /> LOGIN
             </button>
           )}
-        </div>
-      </div>
 
-      {/* [오른쪽] 상태, 이메일, 코인 */}
-      <div className="flex flex-col items-end">
-        
-        {/* ★ [요청사항] 로그인 시 이메일 주소 표시 (코인 위) */}
-        {user && (
-          <span className="text-[10px] font-bold text-gray-400 mb-1 tracking-wide">
-            {user.email}
-          </span>
-        )}
+          {/* (4) 코인 (배경 없음, 심플하게) */}
+          <div className="flex items-center gap-1 ml-1">
+            <Coins size={20} className="text-yellow-500 fill-yellow-400" strokeWidth={2.5} />
+            <span className="text-gray-800 font-black text-xl tracking-tight">
+              {score}
+            </span>
+          </div>
 
-        {/* 온라인/오프라인 상태 */}
-        <div className="flex items-center gap-1 mb-1">
-           {isOnline ? (
-             <Wifi size={12} className="text-green-500"/>
-           ) : (
-             <WifiOff size={12} className="text-red-400 animate-pulse"/>
-           )}
-           <span className="text-[10px] font-bold text-gray-400">
-             {isOnline ? 'ONLINE' : 'OFFLINE'}
-           </span>
-        </div>
-        
-        {/* 코인 (예전처럼 크고 화려하게) */}
-        <div className="flex items-center gap-2 bg-yellow-400 px-4 py-2 rounded-2xl shadow-lg border-b-4 border-yellow-600">
-          <Coins size={20} className="text-white" strokeWidth={2.5} />
-          <span className="text-white font-black text-2xl tracking-tight drop-shadow-sm">
-            {score}
-          </span>
         </div>
       </div>
 
