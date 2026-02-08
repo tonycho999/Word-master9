@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, saveProgress } from '../supabase'; 
-import { Mail, X, Send } from 'lucide-react';
+import { Mail, X, Send, KeyRound, ArrowLeft } from 'lucide-react'; // 아이콘 추가됨
 
 // Hooks 임포트
 import { useSound } from '../hooks/useSound';
@@ -13,26 +13,29 @@ import GameHeader from './GameHeader';
 import GameControls from './GameControls';
 import AnswerBoard from './AnswerBoard';
 
-const CURRENT_VERSION = '1.3.9'; 
+const CURRENT_VERSION = '1.4.0'; // 버전 업 (OTP 적용)
 
 const WordGuessGame = () => {
-  // [1] 기본 상태 (레벨, 점수는 메인에서 관리 - Source of Truth)
+  // [1] 기본 상태
   const [level, setLevel] = useState(() => Number(localStorage.getItem('word-game-level')) || 1);
   const [score, setScore] = useState(() => Number(localStorage.getItem('word-game-score')) || 300);
   
-  // Ref (비동기 처리용)
+  // Ref
   const levelRef = useRef(level);
   const scoreRef = useRef(score);
   useEffect(() => { levelRef.current = level; scoreRef.current = score; }, [level, score]);
 
-  // [2] 커스텀 훅 불러오기
+  // [2] 커스텀 훅
   const playSound = useSound();
   const auth = useAuthSystem(playSound, levelRef, scoreRef, setLevel, setScore);
   const game = useGameLogic(playSound, level, score, setScore, auth.setMessage);
 
-  // [3] 로컬 상태 (이메일 입력, 광고, PWA)
+  // [3] 로컬 상태 (로그인 UI 관련)
   const [inputEmail, setInputEmail] = useState('');
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [otp, setOtp] = useState(''); // OTP 입력값
+  const [isOtpSent, setIsOtpSent] = useState(false); // OTP 전송 여부 확인
+  const [isLoading, setIsLoading] = useState(false); // 로딩 상태 통합
+  
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [adClickCount, setAdClickCount] = useState(() => Number(localStorage.getItem('ad-click-count')) || 0);
   const [isAdVisible, setIsAdVisible] = useState(true);
@@ -60,7 +63,7 @@ const WordGuessGame = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleInstall);
   }, []);
 
-  // [4] 메인 액션들 (광고, 다음 레벨)
+  // [4] 메인 액션들
   const handleRewardAd = () => {
     if (!auth.isOnline) { auth.setMessage("Need Internet for Ads"); return; }
     if (adClickCount >= 10) return;
@@ -82,14 +85,66 @@ const WordGuessGame = () => {
     if (auth.isOnline && auth.user) await saveProgress(auth.user.id, nextLevel, nextScore, auth.user.email);
   };
 
-  const sendMagicLink = async (e) => {
-    e.preventDefault(); if (!inputEmail.includes('@')) return auth.setMessage('Invalid Email');
-    setIsSendingEmail(true); playSound('click');
-    const { error } = await supabase.auth.signInWithOtp({ email: inputEmail, options: { emailRedirectTo: window.location.origin } });
-    setIsSendingEmail(false);
-    if (error) auth.setMessage(error.message.includes('rate limit') ? 'Too many requests' : 'Error');
-    else { auth.setMessage('Check your email!'); auth.setShowLoginModal(false); }
+  // --- [★ 변경됨] OTP 전송 함수 ---
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    if (!inputEmail.includes('@')) return auth.setMessage('Invalid Email');
+    
+    setIsLoading(true);
+    playSound('click');
+
+    // Supabase에 OTP 요청
+    const { error } = await supabase.auth.signInWithOtp({ email: inputEmail });
+
+    setIsLoading(false);
+
+    if (error) {
+        console.error(error);
+        auth.setMessage(error.message.includes('rate limit') ? 'Wait a moment...' : 'Error sending code');
+    } else {
+        setIsOtpSent(true); // 입력 화면 전환
+        auth.setMessage('Code sent to email!');
+    }
     setTimeout(() => auth.setMessage(''), 3000);
+  };
+
+  // --- [★ 추가됨] OTP 검증(로그인 완료) 함수 ---
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (otp.length < 6) return auth.setMessage('Enter 6 digits');
+
+    setIsLoading(true);
+    playSound('click');
+
+    // Supabase에 코드 확인 요청
+    const { data, error } = await supabase.auth.verifyOtp({
+        email: inputEmail,
+        token: otp,
+        type: 'email',
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+        console.error(error);
+        auth.setMessage('Wrong Code. Try again.');
+    } else {
+        // 성공!
+        auth.setMessage('LOGIN SUCCESS!');
+        auth.setShowLoginModal(false); // 모달 닫기
+        setIsOtpSent(false); // 상태 초기화
+        setOtp('');
+        // AuthSystem의 onAuthStateChange가 자동으로 유저 감지함
+    }
+    setTimeout(() => auth.setMessage(''), 3000);
+  };
+
+  // 모달 닫을 때 초기화
+  const closeLoginModal = () => {
+      auth.setShowLoginModal(false);
+      setIsOtpSent(false);
+      setOtp('');
+      setInputEmail('');
   };
 
   // --- [5] 렌더링 ---
@@ -97,28 +152,86 @@ const WordGuessGame = () => {
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-indigo-600 p-4 font-sans text-gray-900 select-none relative">
       <SyncConflictModal conflictData={auth.conflictData} currentLevel={level} currentScore={score} onResolve={auth.handleResolveConflict} />
 
-      {/* 이메일 로그인 모달 */}
+      {/* OTP 로그인 모달 */}
       {auth.showLoginModal && (
           <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl p-6 max-w-xs w-full shadow-2xl animate-fade-in-up">
-                  <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-black text-indigo-600 flex items-center gap-2"><Mail size={24}/> LOGIN</h3><button onClick={() => auth.setShowLoginModal(false)}><X size={24}/></button></div>
                   
-                  {/* ★ [추가된 안내 문구] */}
-                  <div className="bg-indigo-50 p-3 rounded-xl mb-4 border border-indigo-100">
-                    <p className="text-xs text-indigo-800 font-bold leading-relaxed mb-1">
-                      ⚠️ <span className="text-red-500">Log out resets current device to Lv.1</span>
-                    </p>
-                    <p className="text-[10px] text-gray-500 font-medium leading-tight">
-                      Don't worry! Your progress is safe on the server. Just log in again to restore it.
-                    </p>
+                  {/* 헤더 */}
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-xl font-black text-indigo-600 flex items-center gap-2">
+                        {isOtpSent ? <KeyRound size={24}/> : <Mail size={24}/>} 
+                        {isOtpSent ? 'VERIFY CODE' : 'LOGIN'}
+                      </h3>
+                      <button onClick={closeLoginModal}><X size={24}/></button>
                   </div>
+                  
+                  {/* 경고 문구 (이메일 입력 단계에서만 표시) */}
+                  {!isOtpSent && (
+                    <div className="bg-indigo-50 p-3 rounded-xl mb-4 border border-indigo-100">
+                        <p className="text-xs text-indigo-800 font-bold leading-relaxed mb-1">
+                        ⚠️ <span className="text-red-500">Log out resets device to Lv.1</span>
+                        </p>
+                        <p className="text-[10px] text-gray-500 font-medium leading-tight">
+                        Server data is safe. Log in to restore.
+                        </p>
+                    </div>
+                  )}
 
-                  <form onSubmit={sendMagicLink} className="flex flex-col gap-3">
-                      <input type="email" value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} placeholder="your@email.com" className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-white" required />
-                      <button type="submit" disabled={isSendingEmail} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black flex items-center justify-center gap-2">
-                        {isSendingEmail ? 'SENDING...' : 'SEND MAGIC LINK'} <Send size={16}/>
-                      </button>
-                  </form>
+                  {/* 1단계: 이메일 입력 폼 */}
+                  {!isOtpSent ? (
+                      <form onSubmit={handleSendOtp} className="flex flex-col gap-3">
+                          <input 
+                            type="email" 
+                            value={inputEmail} 
+                            onChange={(e) => setInputEmail(e.target.value)} 
+                            placeholder="your@email.com" 
+                            className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-white focus:border-indigo-500 outline-none font-bold text-indigo-900" 
+                            required 
+                          />
+                          <button 
+                            type="submit" 
+                            disabled={isLoading} 
+                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
+                          >
+                            {isLoading ? 'SENDING...' : 'SEND CODE'} <Send size={16}/>
+                          </button>
+                      </form>
+                  ) : (
+                      /* 2단계: OTP 입력 폼 */
+                      <form onSubmit={handleVerifyOtp} className="flex flex-col gap-3">
+                          <p className="text-xs text-center text-gray-500 font-bold">
+                            Enter the 6-digit code sent to<br/>
+                            <span className="text-indigo-600">{inputEmail}</span>
+                          </p>
+                          <input 
+                            type="text" 
+                            value={otp} 
+                            onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} 
+                            placeholder="123456" 
+                            className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-white focus:border-indigo-500 outline-none font-black text-center text-2xl tracking-widest text-indigo-900" 
+                            inputMode="numeric"
+                            autoFocus
+                            required 
+                          />
+                          <button 
+                            type="submit" 
+                            disabled={isLoading} 
+                            className="w-full py-3 bg-green-600 text-white rounded-xl font-black flex items-center justify-center gap-2 hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {isLoading ? 'VERIFYING...' : 'VERIFY & LOGIN'} <KeyRound size={16}/>
+                          </button>
+                          
+                          {/* 뒤로가기 버튼 */}
+                          <button 
+                            type="button"
+                            onClick={() => { setIsOtpSent(false); setOtp(''); }}
+                            className="text-xs text-gray-400 font-bold flex items-center justify-center gap-1 hover:text-gray-600 mt-2"
+                          >
+                            <ArrowLeft size={12}/> Change Email
+                          </button>
+                      </form>
+                  )}
               </div>
           </div>
       )}
