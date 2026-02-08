@@ -3,49 +3,46 @@ import React from 'react';
 const AnswerBoard = ({ currentWord, solvedWords, selectedLetters, isCorrect, isFlashing, hintStage, message }) => {
 
   return (
-    <div className="flex flex-col items-center gap-2 mb-2 w-full justify-center">
+    <div className="flex flex-col items-center gap-4 mb-4 w-full justify-center min-h-[100px]">
       
-      {/* Toast Message */}
+      {/* 알림 메시지 */}
       {message && (
         <div className="absolute top-20 z-50 bg-gray-900/95 text-white px-6 py-2 rounded-full text-sm font-black animate-bounce shadow-xl border border-gray-700 backdrop-blur-sm tracking-wide">
           {message}
         </div>
       )}
 
-      {/* 1. 정답 단어 영역 */}
-      <div className="flex flex-col gap-2 w-full items-center">
+      {/* 1. 정답 단어 영역 (텍스트 전용 스타일) */}
+      <div className="flex flex-col gap-4 w-full items-center">
         {currentWord.split(' ').map((word, wordIndex) => {
           const isSolved = solvedWords.includes(word);
-          // 힌트 3단계(구조 보기) 이상이거나, 이미 맞췄으면 박스를 보여줌
+          // 힌트 3단계(구조 보기) 이상이거나, 이미 맞췄으면 표시
           const shouldShowStructure = isSolved || hintStage === 3;
 
-          if (!shouldShowStructure) return null; 
+          // 안 보일 때는 공간만 차지 (투명)
+          if (!shouldShowStructure) return <div key={wordIndex} className="h-10"></div>;
 
           return (
-            <div key={wordIndex} className="flex gap-1 flex-wrap justify-center animate-fade-in">
+            <div key={wordIndex} className="flex gap-3 flex-wrap justify-center">
               {word.split('').map((char, charIndex) => {
-                
-                // ★ [핵심 수정] 정답을 보여주는 조건 추가
-                // 1. 이미 맞춘 단어이거나
-                // 2. "힌트 5(Flash)"가 발동해서 깜빡이는 중일 때 (isFlashing)
                 const showChar = isSolved || isFlashing;
 
                 return (
                   <div
                     key={charIndex}
                     className={`
-                      /* ★ [수정] w-9 -> w-12 (너비 확대) */
-                      w-12 h-11 flex items-center justify-center rounded-lg text-lg font-black shadow-sm transition-all duration-300 border-2
+                      flex items-end justify-center w-8 h-10
+                      text-4xl font-black transition-all duration-300
                       ${isSolved 
-                        ? 'bg-green-500 text-white border-green-600 shadow-green-200' 
+                        ? 'text-green-600' // 정답: 초록 글자 (밑줄 없음)
                         : isFlashing 
-                          ? 'bg-yellow-300 text-gray-800 border-yellow-500 scale-105' // ★ 힌트 5 발동 시 노란색 + 글자 보임
-                          : 'bg-white border-blue-400 shadow-blue-100' // 평소 힌트 3단계 (구조만)
+                          ? 'text-yellow-500' // 깜빡임: 노란 글자
+                          : 'text-gray-300'   // 빈칸: 연한 회색 ( _ 표시용)
                       }
                     `}
                   >
-                    {/* 조건에 맞을 때만 글자 표시 */}
-                    {showChar ? char : ''}
+                    {/* 맞췄으면 글자, 아니면 언더바(_) 텍스트 표시 */}
+                    {showChar ? char : '_'}
                   </div>
                 );
               })}
@@ -54,21 +51,22 @@ const AnswerBoard = ({ currentWord, solvedWords, selectedLetters, isCorrect, isF
         })}
       </div>
 
-      {/* 2. 입력 확인창 (Input Tray) */}
+      {/* 2. 내가 입력한 글자 (Input Tray) */}
       {!isCorrect && (
-        <div className="w-full flex items-center justify-center min-h-[40px]">
+        <div className="h-12 w-full flex items-center justify-center mt-2">
           {selectedLetters.length > 0 ? (
-            <div className="flex gap-1 flex-wrap justify-center p-1 bg-indigo-50 rounded-xl border-2 border-dashed border-indigo-200">
+            <div className="flex gap-2 justify-center">
                {selectedLetters.map((item) => (
-                 <div key={item.id} className="w-8 h-8 flex items-center justify-center rounded-md text-base font-black bg-indigo-600 text-white shadow-md animate-bounce-short">
+                 <span key={item.id} className="text-2xl font-black text-indigo-600 animate-bounce-short px-1">
                    {item.char}
-                 </div>
+                 </span>
                ))}
             </div>
           ) : (
+             // 입력 대기 중일 때 안내
              hintStage < 3 && solvedWords.length < currentWord.split(' ').length && (
-                <div className="text-gray-300 text-[10px] font-bold animate-pulse tracking-widest border-b border-gray-100 pb-0.5">
-                  TAP LETTERS
+                <div className="text-gray-300 text-xs font-bold tracking-[0.2em] opacity-50">
+                  TYPE ANSWER
                 </div>
              )
           )}
