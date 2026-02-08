@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { wordDatabase, twoWordDatabase, threeWordDatabase, fourWordDatabase, fiveWordDatabase } from '../data/wordDatabase';
+// ★ LEVEL_CONFIG 다시 불러옴
+import { wordDatabase, twoWordDatabase, threeWordDatabase, fourWordDatabase, fiveWordDatabase, LEVEL_CONFIG } from '../data/wordDatabase';
 
 export const useGameLogic = (playSound, level, score, setScore, setMessage) => {
   const [currentWord, setCurrentWord] = useState(() => localStorage.getItem('word-game-current-word') || '');
@@ -7,8 +8,6 @@ export const useGameLogic = (playSound, level, score, setScore, setMessage) => {
   const [wordType, setWordType] = useState(() => localStorage.getItem('word-game-word-type') || 'Normal');
   const [scrambledLetters, setScrambledLetters] = useState(() => JSON.parse(localStorage.getItem('word-game-scrambled')) || []);
   const [selectedLetters, setSelectedLetters] = useState(() => JSON.parse(localStorage.getItem('word-game-selected')) || []);
-  
-  // 맞춘 단어 목록 (예: ["APPLE", "RED"])
   const [solvedWords, setSolvedWords] = useState(() => JSON.parse(localStorage.getItem('word-game-solved-words')) || []);
   
   const [isCorrect, setIsCorrect] = useState(false);
@@ -16,22 +15,42 @@ export const useGameLogic = (playSound, level, score, setScore, setMessage) => {
   const [hintMessage, setHintMessage] = useState(() => localStorage.getItem('word-game-hint-message') || '');
   const [isFlashing, setIsFlashing] = useState(false);
 
-  // [핵심 1] 레벨별 고정 단어 로드
+  // [원상복구 + 고정 로직] LEVEL_CONFIG 기반으로 단어 로드
   const loadNewWord = useCallback(() => {
-    // 1. 모든 단어 DB 합치기
-    const allWords = [
-      ...wordDatabase,
-      ...twoWordDatabase,
-      ...threeWordDatabase,
-      ...fourWordDatabase,
-      ...fiveWordDatabase
-    ];
-
-    // 2. 레벨에 따른 인덱스 계산
-    const fixedIndex = (level - 1) % allWords.length;
-    const selectedPick = allWords[fixedIndex];
+    // 1. 현재 레벨에 맞는 설정(확률) 가져오기
+    // (데이터가 없으면 가장 마지막 설정 사용)
+    const config = (LEVEL_CONFIG && LEVEL_CONFIG.find(c => level <= c.maxLevel)) || LEVEL_CONFIG[LEVEL_CONFIG.length - 1];
     
-    // 3. 상태 초기화
+    // 2. [수정] 랜덤 대신 "레벨 기반의 고정된 확률값" 생성 (0 ~ 99)
+    // 이렇게 하면 레벨 16은 항상 같은 단어 개수 규칙을 따르게 됨 (새로고침해도 동일)
+    const deterministicRandom = (level * 37) % 100; 
+
+    let cumProb = 0;
+    let targetWordCount = 1;
+
+    // 설정된 확률표(probs)를 돌면서 단어 개수(1단어? 2단어?) 결정
+    if (config && config.probs) {
+        for (const [count, prob] of Object.entries(config.probs)) {
+            cumProb += prob;
+            if (deterministicRandom < cumProb) {
+                targetWordCount = Number(count);
+                break;
+            }
+        }
+    }
+    
+    // 3. 결정된 단어 개수에 따라 DB 선택
+    let targetPool = wordDatabase;
+    if (targetWordCount === 2) targetPool = twoWordDatabase;
+    else if (targetWordCount === 3) targetPool = threeWordDatabase;
+    else if (targetWordCount === 4) targetPool = fourWordDatabase;
+    else if (targetWordCount === 5) targetPool = fiveWordDatabase;
+
+    // 4. 해당 DB 안에서 순서대로 가져오기 (레벨 기반 인덱스)
+    const fixedIndex = (level - 1) % targetPool.length;
+    const selectedPick = targetPool[fixedIndex] || targetPool[0];
+    
+    // 상태 초기화
     setCurrentWord(selectedPick.word);
     setCategory(selectedPick.category);
     setWordType(selectedPick.type ? selectedPick.type.toUpperCase() : 'NORMAL');
@@ -46,16 +65,15 @@ export const useGameLogic = (playSound, level, score, setScore, setMessage) => {
     setSelectedLetters([]);
     setSolvedWords([]); 
     setIsCorrect(false);
-    setHintStage(0); // ★ 여기서 힌트가 초기화됨
+    setHintStage(0);
     setHintMessage('');
     setIsFlashing(false);
     
-    console.log(`🔒 [고정 단어 로드] Level: ${level}, Word: ${selectedPick.word}`);
+    console.log(`🔒 [고정 단어 로드] Level: ${level}, Words: ${selectedPick.word.split(' ').length} (Config Max: ${config.maxLevel})`);
   }, [level]);
 
-  // [핵심 수정] 초기 실행 로직 변경
+  // 새로고침 시 기존 단어 유지
   useEffect(() => {
-    // ★ 이미 단어가 로드되어 있다면(새로고침 등), 초기화(loadNewWord)를 하지 않음
     if (!currentWord) {
       loadNewWord();
     }
@@ -85,7 +103,7 @@ export const useGameLogic = (playSound, level, score, setScore, setMessage) => {
     }
   }, [selectedLetters, currentWord, solvedWords, playSound]);
 
-  // 힌트 처리 함수
+  // 힌트 처리 (힌트 5 깜빡임 유지)
   const handleHint = () => {
     playSound('click'); 
     if (isCorrect) return;
@@ -107,14 +125,14 @@ export const useGameLogic = (playSound, level, score, setScore, setMessage) => {
     }
     else if (hintStage === 2) { 
         cost = 300; 
-        msg = ""; // 3단계: 메시지 없음
+        msg = ""; 
         nextStage = 3; 
     }
     else { 
         cost = 500; 
         setIsFlashing(true); 
         playSound('flash'); 
-        setTimeout(() => setIsFlashing(false), 500); 
+        setTimeout(() => setIsFlashing(false), 2000); 
         return; 
     }
 
