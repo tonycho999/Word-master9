@@ -7,7 +7,7 @@ import { useSound } from '../hooks/useSound';
 import { useAuthSystem } from '../hooks/useAuthSystem';
 import { useGameLogic } from '../hooks/useGameLogic';
 
-// ★ [SEO] 여기에 추가합니다
+// ★ [SEO] React Helmet Async
 import { Helmet } from 'react-helmet-async';
 
 // Components
@@ -16,9 +16,8 @@ import GameHeader from './GameHeader';
 import GameControls from './GameControls';
 import AnswerBoard from './AnswerBoard';
 
-// ★ 버전을 올렸습니다 (1.4.5 -> 1.4.6)
-// package.json이 바뀌었으므로 캐시를 갱신하기 위함입니다.
-const CURRENT_VERSION = '1.4.6';
+// ★ 버전을 1.4.7로 올렸습니다. (수정 사항 반영을 위해)
+const CURRENT_VERSION = '1.4.7';
 
 const WordGuessGame = () => {
   // [1] 기본 상태 (LocalStorage에서 불러오기)
@@ -47,7 +46,10 @@ const WordGuessGame = () => {
   // 광고 쿨타임 및 로딩 상태
   const [adCooldown, setAdCooldown] = useState(0);
   const [isAdLoading, setIsAdLoading] = useState(false);
-  const [isAdVisible, setIsAdVisible] = useState(true); // 호환성 유지
+  
+  // ★ [수정] setIsAdVisible 삭제 (빌드 에러 해결)
+  // 광고 버튼은 항상 보이되, 타이머나 로딩 상태로 제어하므로 setter가 필요 없습니다.
+  const [isAdVisible] = useState(true); 
 
   // ★ 버전 체크 및 강제 업데이트 로직
   useEffect(() => {
@@ -223,7 +225,6 @@ const WordGuessGame = () => {
         <GameControls 
             category={game.category} wordType={game.wordType} wordCountDisplay={`${game.currentWord.split(/\s+/).length} WORDS`}
             hintMessage={game.hintMessage} isCorrect={game.isCorrect} hintStage={game.hintStage}
-            // 힌트 3단계 텍스트 변경 (SHOW SPACES -> SHOW STRUCTURE)
             hintButtonText={game.hintStage === 0 ? '1ST LETTER (100P)' : game.hintStage === 1 ? '1ST & LAST (200P)' : game.hintStage === 2 ? 'SHOW STRUCTURE (300P)' : 'FLASH ANSWER (500P)'}
             onHint={game.handleHint} onShuffle={game.handleShuffle} 
             isAdVisible={isAdVisible} isAdLoading={isAdLoading} adClickCount={adClickCount} onRewardAd={handleRewardAd} isOnline={auth.isOnline} 
