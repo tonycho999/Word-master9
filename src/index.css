@@ -2,10 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 기본 폰트 및 배경 설정 */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* 노트북/모바일 전체 화면 강제 적용 */
 html, body, #root {
   height: 100%;
-  margin: 0;
-  padding: 0;
+  width: 100%;
   background-color: #4f46e5; /* indigo-600 */
+  overflow: hidden; /* 스크롤 바 생기는 것 방지 (게임이라 고정된 화면이 좋음) */
 }
