@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, saveProgress } from '../supabase'; 
-import { Mail, X, Send, KeyRound, ArrowLeft } from 'lucide-react'; // 아이콘 추가됨
+import { Mail, X, Send, KeyRound, ArrowLeft } from 'lucide-react';
 
 // Hooks 임포트
 import { useSound } from '../hooks/useSound';
@@ -13,7 +13,7 @@ import GameHeader from './GameHeader';
 import GameControls from './GameControls';
 import AnswerBoard from './AnswerBoard';
 
-const CURRENT_VERSION = '1.4.0'; // 버전 업 (OTP 적용)
+const CURRENT_VERSION = '1.4.0'; 
 
 const WordGuessGame = () => {
   // [1] 기본 상태
@@ -85,7 +85,7 @@ const WordGuessGame = () => {
     if (auth.isOnline && auth.user) await saveProgress(auth.user.id, nextLevel, nextScore, auth.user.email);
   };
 
-  // --- [★ 변경됨] OTP 전송 함수 ---
+  // OTP 전송 함수
   const handleSendOtp = async (e) => {
     e.preventDefault();
     if (!inputEmail.includes('@')) return auth.setMessage('Invalid Email');
@@ -93,7 +93,6 @@ const WordGuessGame = () => {
     setIsLoading(true);
     playSound('click');
 
-    // Supabase에 OTP 요청
     const { error } = await supabase.auth.signInWithOtp({ email: inputEmail });
 
     setIsLoading(false);
@@ -102,13 +101,13 @@ const WordGuessGame = () => {
         console.error(error);
         auth.setMessage(error.message.includes('rate limit') ? 'Wait a moment...' : 'Error sending code');
     } else {
-        setIsOtpSent(true); // 입력 화면 전환
+        setIsOtpSent(true); 
         auth.setMessage('Code sent to email!');
     }
     setTimeout(() => auth.setMessage(''), 3000);
   };
 
-  // --- [★ 추가됨] OTP 검증(로그인 완료) 함수 ---
+  // OTP 검증(로그인 완료) 함수 - [수정됨: data 제거]
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     if (otp.length < 6) return auth.setMessage('Enter 6 digits');
@@ -116,8 +115,8 @@ const WordGuessGame = () => {
     setIsLoading(true);
     playSound('click');
 
-    // Supabase에 코드 확인 요청
-    const { data, error } = await supabase.auth.verifyOtp({
+    // 여기서 data를 지우고 error만 받도록 수정했습니다.
+    const { error } = await supabase.auth.verifyOtp({
         email: inputEmail,
         token: otp,
         type: 'email',
@@ -129,17 +128,14 @@ const WordGuessGame = () => {
         console.error(error);
         auth.setMessage('Wrong Code. Try again.');
     } else {
-        // 성공!
         auth.setMessage('LOGIN SUCCESS!');
-        auth.setShowLoginModal(false); // 모달 닫기
-        setIsOtpSent(false); // 상태 초기화
+        auth.setShowLoginModal(false); 
+        setIsOtpSent(false); 
         setOtp('');
-        // AuthSystem의 onAuthStateChange가 자동으로 유저 감지함
     }
     setTimeout(() => auth.setMessage(''), 3000);
   };
 
-  // 모달 닫을 때 초기화
   const closeLoginModal = () => {
       auth.setShowLoginModal(false);
       setIsOtpSent(false);
@@ -156,8 +152,6 @@ const WordGuessGame = () => {
       {auth.showLoginModal && (
           <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl p-6 max-w-xs w-full shadow-2xl animate-fade-in-up">
-                  
-                  {/* 헤더 */}
                   <div className="flex justify-between items-center mb-4">
                       <h3 className="text-xl font-black text-indigo-600 flex items-center gap-2">
                         {isOtpSent ? <KeyRound size={24}/> : <Mail size={24}/>} 
@@ -166,7 +160,6 @@ const WordGuessGame = () => {
                       <button onClick={closeLoginModal}><X size={24}/></button>
                   </div>
                   
-                  {/* 경고 문구 (이메일 입력 단계에서만 표시) */}
                   {!isOtpSent && (
                     <div className="bg-indigo-50 p-3 rounded-xl mb-4 border border-indigo-100">
                         <p className="text-xs text-indigo-800 font-bold leading-relaxed mb-1">
@@ -178,56 +171,24 @@ const WordGuessGame = () => {
                     </div>
                   )}
 
-                  {/* 1단계: 이메일 입력 폼 */}
                   {!isOtpSent ? (
                       <form onSubmit={handleSendOtp} className="flex flex-col gap-3">
-                          <input 
-                            type="email" 
-                            value={inputEmail} 
-                            onChange={(e) => setInputEmail(e.target.value)} 
-                            placeholder="your@email.com" 
-                            className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-white focus:border-indigo-500 outline-none font-bold text-indigo-900" 
-                            required 
-                          />
-                          <button 
-                            type="submit" 
-                            disabled={isLoading} 
-                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
-                          >
+                          <input type="email" value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} placeholder="your@email.com" className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-white focus:border-indigo-500 outline-none font-bold text-indigo-900" required />
+                          <button type="submit" disabled={isLoading} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50">
                             {isLoading ? 'SENDING...' : 'SEND CODE'} <Send size={16}/>
                           </button>
                       </form>
                   ) : (
-                      /* 2단계: OTP 입력 폼 */
                       <form onSubmit={handleVerifyOtp} className="flex flex-col gap-3">
                           <p className="text-xs text-center text-gray-500 font-bold">
                             Enter the 6-digit code sent to<br/>
                             <span className="text-indigo-600">{inputEmail}</span>
                           </p>
-                          <input 
-                            type="text" 
-                            value={otp} 
-                            onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} 
-                            placeholder="123456" 
-                            className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-white focus:border-indigo-500 outline-none font-black text-center text-2xl tracking-widest text-indigo-900" 
-                            inputMode="numeric"
-                            autoFocus
-                            required 
-                          />
-                          <button 
-                            type="submit" 
-                            disabled={isLoading} 
-                            className="w-full py-3 bg-green-600 text-white rounded-xl font-black flex items-center justify-center gap-2 hover:bg-green-700 disabled:opacity-50"
-                          >
+                          <input type="text" value={otp} onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} placeholder="123456" className="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 bg-white focus:border-indigo-500 outline-none font-black text-center text-2xl tracking-widest text-indigo-900" inputMode="numeric" autoFocus required />
+                          <button type="submit" disabled={isLoading} className="w-full py-3 bg-green-600 text-white rounded-xl font-black flex items-center justify-center gap-2 hover:bg-green-700 disabled:opacity-50">
                             {isLoading ? 'VERIFYING...' : 'VERIFY & LOGIN'} <KeyRound size={16}/>
                           </button>
-                          
-                          {/* 뒤로가기 버튼 */}
-                          <button 
-                            type="button"
-                            onClick={() => { setIsOtpSent(false); setOtp(''); }}
-                            className="text-xs text-gray-400 font-bold flex items-center justify-center gap-1 hover:text-gray-600 mt-2"
-                          >
+                          <button type="button" onClick={() => { setIsOtpSent(false); setOtp(''); }} className="text-xs text-gray-400 font-bold flex items-center justify-center gap-1 hover:text-gray-600 mt-2">
                             <ArrowLeft size={12}/> Change Email
                           </button>
                       </form>
