@@ -1,23 +1,47 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css'; // ★ 스타일(Tailwind) 적용을 위해 필수
+import './index.css';
 import App from './App';
-
-// ★ PWA 기능(앱 설치, 오프라인) 활성화를 위해 필수
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
-
-// ★ 검색 최적화(SEO)를 위해 필수
 import { HelmetProvider } from 'react-helmet-async';
 
+// 1. 헬멧 컨텍스트 명시 (에러 방지용)
+const helmetContext = {};
+
+// 2. 에러가 나면 흰 화면 대신 에러 메시지를 보여주는 부품 (에러 경계)
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      // 에러 발생 시 이 화면이 뜹니다
+      return (
+        <div style={{ padding: 20, color: 'red', wordBreak: 'break-all' }}>
+          <h1>💥 앱 실행 중 오류 발생</h1>
+          <p>{this.state.error.toString()}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
+
 root.render(
-  <React.StrictMode>
-    {/* HelmetProvider로 감싸야 SEO 기능이 작동합니다 */}
-    <HelmetProvider>
-      <App />
-    </HelmetProvider>
-  </React.StrictMode>
+  // 3. StrictMode 제거 (버전 체크 로직 충돌 방지)
+  // <React.StrictMode>  <-- 이거 때문에 폰에서 꼬일 수 있어서 뺍니다.
+    <ErrorBoundary>
+      <HelmetProvider context={helmetContext}>
+        <App />
+      </HelmetProvider>
+    </ErrorBoundary>
+  // </React.StrictMode>
 );
 
-// ★ PWA 서비스 워커 등록 (이게 없으면 '앱 설치' 버튼이 안 뜹니다)
 serviceWorkerRegistration.register();
