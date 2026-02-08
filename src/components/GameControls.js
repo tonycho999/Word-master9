@@ -26,7 +26,7 @@ const GameControls = ({
         {category}
       </h2>
 
-      {/* 3. 힌트 메시지 (공간 차지 최소화) */}
+      {/* 3. 힌트 메시지 */}
       <div className="h-5 mb-1 flex items-center justify-center w-full">
          {hintMessage && !isCorrect && (
            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full animate-pulse">
@@ -35,14 +35,13 @@ const GameControls = ({
          )}
       </div>
 
-      {/* 4. 힌트 & 셔플 버튼 (★요청하신 대로 크기/높이 대폭 축소) */}
+      {/* 4. 힌트 & 셔플 버튼 */}
       {!isCorrect && (
         <div className="flex gap-2 w-full mb-2">
            {/* 힌트 버튼 */}
            <button 
              onClick={onHint} 
              disabled={hintStage >= 4}
-             // py-3 -> py-1로 변경, h-8로 높이 고정
              className="flex-1 bg-white border-2 border-gray-100 hover:border-gray-300 hover:bg-gray-50 text-gray-700 h-9 rounded-lg font-black text-[10px] flex items-center justify-center gap-1 shadow-sm transition-all active:scale-95 disabled:opacity-30 disabled:active:scale-100"
            >
              <Lightbulb size={14} className={hintStage >= 3 ? "text-yellow-500 fill-yellow-500" : "text-gray-400"} />
@@ -52,7 +51,6 @@ const GameControls = ({
            {/* 셔플 버튼 */}
            <button 
              onClick={onShuffle} 
-             // py-3 -> py-1로 변경, h-8로 높이 고정
              className="flex-1 bg-white border-2 border-gray-100 hover:border-gray-300 hover:bg-gray-50 text-gray-700 h-9 rounded-lg font-black text-[10px] flex items-center justify-center gap-1 shadow-sm transition-all active:scale-95"
            >
              <Shuffle size={14} /> SHUFFLE
@@ -60,23 +58,19 @@ const GameControls = ({
         </div>
       )}
 
-      {/* 광고 버튼 (작게 유지) */}
+      {/* 5. 광고 버튼 */}
       {!isCorrect && isAdVisible && (
         <button 
           onClick={onRewardAd} disabled={!isOnline || isAdLoading}
-          className="w-full bg-amber-400 hover:bg-amber-500 text-white py-1.5 mb-2 rounded-lg font-black text-[10px] shadow-md shadow-amber-200 flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:grayscale"
+          className="w-full bg-amber-400 hover:bg-amber-500 text-white py-1.5 mb-3 rounded-lg font-black text-[10px] shadow-md shadow-amber-200 flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:grayscale"
         >
           {isAdLoading ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"/> : <Film size={14} fill="currentColor" />}
           WATCH AD (+200P) ({adClickCount}/10)
         </button>
       )}
 
-      {/* 5. AnswerBoard (게임판) - 여기 들어감 */}
-      {children}
-
-      {/* 6. 알파벳 버튼 영역 (★ mt-auto 제거, 바로 밑에 붙음) */}
-      <div className="w-full mt-1"> 
-        
+      {/* 6. 알파벳 버튼 영역 (★위치 이동: 광고 버튼 바로 아래) */}
+      <div className="w-full mb-4"> 
         {isCorrect ? (
           <button
             onClick={onNextLevel}
@@ -117,6 +111,9 @@ const GameControls = ({
           </>
         )}
       </div>
+
+      {/* 7. AnswerBoard (게임판) (★위치 이동: 맨 아래) */}
+      {children}
 
     </div>
   );
