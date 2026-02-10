@@ -5,6 +5,16 @@ const SyncConflictModal = ({ conflictData, currentLevel, currentScore, onResolve
   // 충돌 데이터가 없으면 렌더링 안 함
   if (!conflictData) return null;
 
+  // ★ [수정됨] 데이터 구조가 { cloud: ... } 형태일 경우와 아닐 경우를 모두 안전하게 처리
+  // (Hook에서 넘어오는 데이터가 conflictData.cloud 안에 있을 수 있음)
+  const serverData = conflictData.cloud || conflictData;
+  const serverLevel = serverData.level || 1;
+  const serverScore = serverData.score || 0;
+
+  // ★ [수정됨] 로컬 데이터가 props로 안 넘어왔을 경우, conflictData.local에서 찾음 (안전장치)
+  const localLevel = currentLevel || conflictData.local?.level || 1;
+  const localScore = currentScore || conflictData.local?.score || 0;
+
   return (
     // 배경: 검은색 반투명, 화면 전체 덮음 (고정)
     <div className="fixed inset-0 bg-black/80 z-[999] flex items-center justify-center p-4">
@@ -31,11 +41,15 @@ const SyncConflictModal = ({ conflictData, currentLevel, currentScore, onResolve
             </div>
             <div className="text-center">
               <div className="text-xs font-bold text-gray-400">SERVER</div>
-              <div className="font-black text-gray-800 text-lg">Lv.{conflictData.level}</div>
-              <div className="text-xs font-bold text-indigo-600">{conflictData.score.toLocaleString()} P</div>
+              {/* ★ 값 안전하게 출력 */}
+              <div className="font-black text-gray-800 text-lg">Lv.{serverLevel}</div>
+              <div className="text-xs font-bold text-indigo-600">
+                {serverScore?.toLocaleString() || 0} P
+              </div>
             </div>
             <button 
-              onClick={() => onResolve('server')}
+              // ★ Hook에서 'cloud'를 기대하므로 인자값 맞춤 (server -> cloud)
+              onClick={() => onResolve('cloud')}
               className="w-full mt-2 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-lg transition-colors"
             >
               LOAD
@@ -52,8 +66,11 @@ const SyncConflictModal = ({ conflictData, currentLevel, currentScore, onResolve
             </div>
             <div className="text-center">
               <div className="text-xs font-bold text-gray-400">MY PHONE</div>
-              <div className="font-black text-gray-800 text-lg">Lv.{currentLevel}</div>
-              <div className="text-xs font-bold text-indigo-600">{currentScore.toLocaleString()} P</div>
+              {/* ★ 값 안전하게 출력 */}
+              <div className="font-black text-gray-800 text-lg">Lv.{localLevel}</div>
+              <div className="text-xs font-bold text-indigo-600">
+                {localScore?.toLocaleString() || 0} P
+              </div>
             </div>
             <button 
               onClick={() => onResolve('local')}
