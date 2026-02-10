@@ -1,159 +1,116 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, logout, saveProgress, syncGameData } from '../supabase';
+import { useState, useEffect } from 'react';
+import { auth, googleProvider, signInWithPopup, signOut, db, saveProgress } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export const useAuthSystem = (playSound, levelRef, scoreRef, setLevel, setScore) => {
   const [user, setUser] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [conflictData, setConflictData] = useState(null);
+  const [conflictData, setConflictData] = useState(null); // 충돌 데이터 (서버 vs 로컬)
   const [message, setMessage] = useState('');
 
-  // 무한 루프 방지용 안전장치
-  const isCheckingRef = useRef(false); 
-  const hasCheckedRef = useRef(false); 
-
-  // 1. 데이터 동기화 함수
-  const checkDataConflict = useCallback(async (userId) => {
-    if (isCheckingRef.current || hasCheckedRef.current || !navigator.onLine) return;
-
-    isCheckingRef.current = true; 
-    console.log("🔒 [Sync] DB 데이터 확인 시작");
-
-    try {
-        const currentLevel = Number(localStorage.getItem('word-game-level') || 1);
-        const currentScore = Number(localStorage.getItem('word-game-score') || 300);
-        
-        const result = await syncGameData(userId, currentLevel, currentScore, user?.email);
-
-        if (result.status === 'CONFLICT') {
-            setConflictData({ ...result.serverData, type: 'level_mismatch' });
-        } else if (result.status === 'UPDATE_LOCAL') {
-            setLevel(result.serverData.level);
-            setScore(result.serverData.score);
-            localStorage.setItem('word-game-level', result.serverData.level);
-            localStorage.setItem('word-game-score', result.serverData.score);
-            console.log("⚡ 서버 데이터로 업데이트됨");
-            hasCheckedRef.current = true; 
-        } else {
-            hasCheckedRef.current = true; 
-        }
-    } catch (e) {
-        console.error(e);
-    } finally {
-        isCheckingRef.current = false; 
-    }
-  }, [user, setLevel, setScore]); 
-
-  // 2. 온라인 상태 감지
+  // 1. 온라인 상태 감지
   useEffect(() => {
-    const handleOnline = () => { 
-        setIsOnline(true); 
-        hasCheckedRef.current = false; 
-        if (user) checkDataConflict(user.id); 
+    const handleStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleStatus);
+    window.addEventListener('offline', handleStatus);
+    return () => {
+      window.removeEventListener('online', handleStatus);
+      window.removeEventListener('offline', handleStatus);
     };
-    const handleOffline = () => { setIsOnline(false); setMessage('OFFLINE MODE'); };
-    
-    window.addEventListener('online', handleOnline); 
-    window.addEventListener('offline', handleOffline);
-    
-    return () => { 
-        window.removeEventListener('online', handleOnline); 
-        window.removeEventListener('offline', handleOffline); 
-    };
-  }, [user, checkDataConflict]);
+  }, []);
 
-  // 3. 로그인 상태 감지
+  // 2. Firebase 로그인 상태 감지 (자동 로그인)
   useEffect(() => {
-    const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) setUser(session.user);
-    };
-    initSession();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        if (event === 'SIGNED_IN') {
-             hasCheckedRef.current = false;
-             setMessage('LOGIN SUCCESS!'); 
-             setTimeout(() => setMessage(''), 2000); 
-        }
-      } else if (event === 'SIGNED_OUT') { 
-          setUser(null); 
-          hasCheckedRef.current = false; 
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        // 로그인 성공 시 서버 데이터 확인
+        await checkCloudData(currentUser);
+      } else {
+        setUser(null);
       }
     });
-    return () => subscription.unsubscribe();
-  }, []); 
+    return () => unsubscribe();
+  }, []);
 
-  // 4. 유저 변경 시 체크
-  useEffect(() => {
-      if (user && !hasCheckedRef.current) {
-          checkDataConflict(user.id);
-      }
-  }, [user, checkDataConflict]);
-
-  // 5. 액션 핸들러들
-  const handleResolveConflict = async (choice) => {
-    playSound('click'); 
-    if (!conflictData || !user) return;
-    
-    if (choice === 'server') {
-      const newLevel = Number(conflictData.level);
-      const newScore = Number(conflictData.score);
-
-      setLevel(newLevel); 
-      setScore(newScore);
-      localStorage.setItem('word-game-level', newLevel); 
-      localStorage.setItem('word-game-score', newScore);
-      
-      setMessage('LOADED SERVER DATA!');
-      setConflictData(null); 
-      hasCheckedRef.current = true; 
-    } else {
-      await saveProgress(user.id, levelRef.current, scoreRef.current, user.email);
-      setConflictData(null); 
-      hasCheckedRef.current = true; 
-      setMessage('SAVED LOCAL DATA!');
+  // 3. 구글 로그인 핸들러
+  const handleGoogleLogin = async () => {
+    try {
+      playSound('click');
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      setMessage(`Welcome, ${user.displayName}!`);
+      setShowLoginModal(false);
+      // 로그인 후 데이터 동기화 로직은 useEffect에서 자동 처리됨
+    } catch (error) {
+      console.error("Login Failed:", error);
+      setMessage("Login Failed. Try again.");
     }
-    setTimeout(() => setMessage(''), 2000);
   };
 
-  // ★ [핵심 수정] 로그아웃 시 데이터 초기화 (악용 방지)
+  // 4. 로그아웃
   const handleLogout = async () => {
     playSound('click');
-    try { 
-        // 1. 서버 로그아웃
-        await logout(); 
-    } catch (e) { 
-        console.error(e); 
-    } finally {
-        // 2. [중요] 내 폰의 점수 데이터를 1레벨/300점으로 강제 초기화
-        localStorage.removeItem('word-game-level');
-        localStorage.removeItem('word-game-score');
-        
-        // 3. 좀비 세션 방지 (로그인 토큰 삭제)
-        Object.keys(localStorage).forEach((key) => {
-            if (key.startsWith('sb-')) localStorage.removeItem(key);
-        });
-
-        // 4. 화면 즉시 반영
-        setUser(null);
-        setLevel(1);
-        setScore(300);
-        hasCheckedRef.current = false;
-        setMessage('RESET TO LV.1'); 
-        
-        // 5. 확실한 초기화를 위해 새로고침
-        setTimeout(() => { 
-            setMessage(''); 
-            window.location.reload(); 
-        }, 1000); 
+    if (window.confirm("Log out? (Device data remains)")) {
+      await signOut(auth);
+      setUser(null);
+      setMessage("Logged out.");
     }
   };
 
-  return {
-    user, isOnline, showLoginModal, setShowLoginModal, conflictData, message, setMessage,
-    handleResolveConflict, handleLogout
+  // 5. 서버 데이터 확인 및 충돌 해결 로직
+  const checkCloudData = async (user) => {
+    try {
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const cloudData = docSnap.data();
+        const localLevel = levelRef.current;
+
+        // 서버 레벨이 더 높으면 -> "불러오시겠습니까?" 모달 띄움
+        if (cloudData.level > localLevel) {
+          setConflictData({
+            cloud: { level: cloudData.level, score: cloudData.score, date: cloudData.last_updated },
+            local: { level: localLevel, score: scoreRef.current }
+          });
+        } else {
+          // 로컬이 더 높거나 같으면 -> 서버를 덮어씀 (자동 백업)
+          await saveProgress(user.uid, localLevel, scoreRef.current, user.email);
+        }
+      } else {
+        // 서버에 데이터가 없으면 -> 현재 데이터를 서버에 저장 (첫 백업)
+        await saveProgress(user.uid, levelRef.current, scoreRef.current, user.email);
+      }
+    } catch (error) {
+      console.error("Sync Error:", error);
+    }
+  };
+
+  // 충돌 해결 (사용자 선택)
+  const handleResolveConflict = async (choice) => {
+    if (choice === 'cloud') {
+        // 서버 데이터로 덮어쓰기
+        setLevel(conflictData.cloud.level);
+        setScore(conflictData.cloud.score);
+        localStorage.setItem('word-game-level', conflictData.cloud.level);
+        localStorage.setItem('word-game-score', conflictData.cloud.score);
+        setMessage("Data Loaded from Cloud!");
+    } else {
+        // 내 폰 데이터 유지 (서버 강제 업데이트)
+        if (user) {
+            await saveProgress(user.uid, levelRef.current, scoreRef.current, user.email);
+            setMessage("Local Data Saved to Cloud!");
+        }
+    }
+    setConflictData(null); // 모달 닫기
+  };
+
+  return { 
+    user, isOnline, showLoginModal, setShowLoginModal, 
+    conflictData, handleResolveConflict, 
+    message, setMessage, 
+    handleGoogleLogin, handleLogout // 구글 로그인 함수 내보내기
   };
 };
