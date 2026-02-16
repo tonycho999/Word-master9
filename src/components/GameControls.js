@@ -1,6 +1,6 @@
 import React from 'react';
 import { Shuffle, Lightbulb, RotateCcw, Delete, Play, Share2 } from 'lucide-react';
-import AdButtonComponent from './AdButtonComponent';
+import AdButtonComponent from './AdButton';
 
 const GameControls = ({ 
   category, wordType, wordCountDisplay,
