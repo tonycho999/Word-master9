@@ -45,11 +45,9 @@ const WordGuessGame = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleInstall);
   }, []);
 
-  // ▼▼▼ [핵심] 플랫폼 감지 및 설치 버튼 노출 여부 결정 ▼▼▼
-  // Poki나 CrazyGames가 '아닐 때만' 설치 버튼을 보여줌
+  // 플랫폼 감지 (Poki, CrazyGames 등)
   const isPlatformGame = window.PokiSDK || (window.CrazyGames && window.CrazyGames.SDK);
   const showInstallButton = !!deferredPrompt && !isPlatformGame;
-  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
   // 자동 저장
   useEffect(() => {
@@ -66,8 +64,8 @@ const WordGuessGame = () => {
     playSound('reward'); 
     const newScore = scoreRef.current + 200; 
     setScore(newScore); 
-    auth.setMessage('+200P Ad Reward!'); 
-    setTimeout(() => auth.setMessage(''), 2000);
+    // auth.setMessage('+200P Ad Reward!'); // 팝업 제거를 위해 주석
+    // setTimeout(() => auth.setMessage(''), 2000);
 
     if (auth.isOnline && auth.user) {
         await saveProgress(auth.user.uid, levelRef.current, newScore, auth.user.email);
@@ -79,8 +77,8 @@ const WordGuessGame = () => {
     playSound('reward');
     const newScore = scoreRef.current + 100;
     setScore(newScore);
-    auth.setMessage('+100P Share Bonus!');
-    setTimeout(() => auth.setMessage(''), 2000);
+    // auth.setMessage('+100P Share Bonus!'); // 팝업 제거
+    // setTimeout(() => auth.setMessage(''), 2000);
 
     if (auth.isOnline && auth.user) {
         await saveProgress(auth.user.uid, levelRef.current, newScore, auth.user.email);
@@ -91,9 +89,9 @@ const WordGuessGame = () => {
     playSound('click');
     const nextLevel = levelRef.current + 1; const nextScore = scoreRef.current + 50;
     setScore(nextScore); setLevel(nextLevel);
-    game.setCurrentWord(''); game.setSolvedWords([]); 
-
-    // Poki/CrazyGames 게임 플레이 이벤트
+    // game.setCurrentWord(''); // useGameLogic 내부에서 자동 초기화됨
+    
+    // 플랫폼 게임 플레이 시작 이벤트
     if (window.PokiSDK) window.PokiSDK.gameplayStart();
     if (window.CrazyGames && window.CrazyGames.SDK) window.CrazyGames.SDK.game.gameplayStart();
 
@@ -144,7 +142,6 @@ const WordGuessGame = () => {
 
       <div className="bg-white rounded-[2rem] p-4 w-full max-w-md shadow-2xl flex flex-col items-center border-t-8 border-indigo-500">
         
-        {/* ▼▼▼ [수정됨] showInstallBtn prop을 다시 전달 ▼▼▼ */}
         <GameHeader 
           level={level} 
           score={score} 
@@ -155,16 +152,19 @@ const WordGuessGame = () => {
           showInstallBtn={showInstallButton} 
           onInstall={() => deferredPrompt?.prompt()} 
         />
-        {/* ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ */}
 
         <GameControls 
             category={game.category} 
             wordType={game.wordType} 
-            wordCountDisplay={`${game.currentWord.split(/\s+/).length} WORDS`}
+            
+            // ▼▼▼ [필수 추가] 2단어 감지용 정답 데이터 전달 ▼▼▼
+            targetWords={game.targetWords} 
+            // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
             hintMessage={game.hintMessage} 
             isCorrect={game.isCorrect} 
             hintStage={game.hintStage}
-            hintButtonText={game.hintStage === 0 ? '1ST LETTER (100P)' : game.hintStage === 1 ? '1ST & LAST (200P)' : game.hintStage === 2 ? 'SHOW STRUCTURE (300P)' : 'FLASH ANSWER (500P)'}
+            hintButtonText={game.hintStage === 0 ? '1ST LETTER (100P)' : game.hintStage === 1 ? 'LAST LETTER (200P)' : game.hintStage === 2 ? 'SHOW LENGTH (300P)' : 'QUICK LOOK (500P)'}
             onHint={game.handleHint} 
             onShuffle={game.handleShuffle} 
             onRewardAd={handleRewardAd} 
@@ -175,7 +175,19 @@ const WordGuessGame = () => {
             onBackspace={game.handleBackspace} 
             onNextLevel={processNextLevel}
         >
-            <AnswerBoard currentWord={game.currentWord} solvedWords={game.solvedWords} selectedLetters={game.selectedLetters} isCorrect={game.isCorrect} isFlashing={game.isFlashing} hintStage={game.hintStage} message={auth.message} targetWord={game.targetWord}/>
+            <AnswerBoard 
+                currentWord={game.currentWord} 
+                
+                // ▼▼▼ [필수 추가] AnswerBoard에도 정답 구조와 찾은 단어 전달 ▼▼▼
+                targetWords={game.targetWords} 
+                foundWords={game.foundWords}
+                // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+                isCorrect={game.isCorrect} 
+                isFlashing={game.isFlashing} 
+                hintStage={game.hintStage} 
+                hintMessage={game.hintMessage}
+            />
         </GameControls>
       </div>
 
