@@ -1,6 +1,5 @@
 import React from 'react';
 import { Shuffle, Lightbulb, RotateCcw, Delete, Play, Share2 } from 'lucide-react';
-import AdButtonComponent from './AdButton';
 
 const GameControls = ({ 
   category, wordType, wordCountDisplay,
@@ -94,10 +93,6 @@ const GameControls = ({
         </div>
       )}
 
-      {/* 5. 광고 버튼 (유지) */}
-      {!isCorrect && (
-        <AdButtonComponent onReward={onRewardAd} />
-      )}
 
       {/* 6. 알파벳 버튼 (유지) */}
       {!isCorrect && (
