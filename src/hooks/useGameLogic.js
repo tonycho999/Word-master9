@@ -78,7 +78,7 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
     setIsCorrect(false);
     setIsFlashing(false);
 
-    // 힌트 상태 복구 (새로고침 대응)
+    // 힌트 복구
     const savedHintLevel = Number(localStorage.getItem('word-game-hint-level'));
     const savedHintStage = Number(localStorage.getItem('word-game-hint-stage'));
     const savedHintMessage = localStorage.getItem('word-game-hint-message');
@@ -202,7 +202,7 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
     const nextStage = hintStage + 1;
     let message = '';
 
-    // 공통 사용 변수
+    // 힌트 텍스트 생성 (공통)
     const firsts = targetWords.map(w => w[0]).join(' ');
     const lasts = targetWords.map(w => w[w.length-1]).join(' ');
 
@@ -214,11 +214,15 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
             message = `First: ${firsts} | Last: ${lasts}`;
             break;
         case 3: 
-            // ▼▼▼ [수정] 3단계에서도 텍스트 힌트 유지 (언더바만 추가됨) ▼▼▼
+            // 3단계: 텍스트는 그대로 유지 (화면에 언더바만 생김)
             message = `First: ${firsts} | Last: ${lasts}`;
             break;
         case 4: 
-            message = "Quick Look!";
+            // ▼▼▼ [수정] "Quick Look!" 텍스트 삭제 ▼▼▼
+            // 대신 기존 힌트(First/Last)를 그대로 보여줘서 덮어쓰지 않게 함
+            message = `First: ${firsts} | Last: ${lasts}`;
+            
+            // 플래시 효과 실행
             setIsFlashing(true);
             setTimeout(() => setIsFlashing(false), 800); 
             break;
@@ -228,7 +232,6 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
     setHintStage(nextStage);
     setHintMessage(message);
 
-    // 힌트 저장
     localStorage.setItem('word-game-hint-level', level);
     localStorage.setItem('word-game-hint-stage', nextStage);
     localStorage.setItem('word-game-hint-message', message);
