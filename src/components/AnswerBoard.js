@@ -5,97 +5,86 @@ const AnswerBoard = ({
   targetWords = [],       
   foundWords = [],        
   isCorrect, 
-  isFlashing, // 0.5초 깜빡임 상태
+  isFlashing,
   hintStage,
 }) => {
-  
-  // 정답을 맞췄으면 targetWords(원래 순서)를 다 보여줌.
-  // 게임 중에는 아래 로직으로 그림.
 
   return (
-    <div className="flex flex-col items-center w-full mb-4">
+    <div className="flex flex-col items-center w-full mb-4 min-h-[140px] justify-center">
       
-      {/* Answer Display Area 
-         - 정답을 맞춘 단어는 고정됨 (순서: targetWords 기준)
-         - 못 맞춘 단어는 힌트 단계에 따라 다르게 보임
-      */}
-      <div className="flex flex-col items-center gap-6 w-full min-h-[100px] justify-center">
-        
-        {/* 상단: 정답 구조 표시 영역 (힌트 3단계 이상 또는 찾은 단어 표시) */}
-        {/* [수정 4] targetWords 순서대로 렌더링하여 'Spicy Pasta' 순서 보장 */}
-        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-            {targetWords.map((word, wIdx) => {
-                // 이 단어를 찾았는지 확인 (단, 같은 단어가 여러개일 경우 갯수 체크 필요하지만 여기선 단순화)
-                // foundWords에 있는 단어라면 '공개' 상태
-                // 주의: foundWords는 찾은 순서대로 들어있음.
-                // targetWords의 이 위치에 있는 단어가 foundWords에 포함되어 있는지 확인.
-                // 정확한 매칭을 위해 foundWords 복사본에서 하나씩 지우면서 매칭해야 하나,
-                // UI 표시는 "이 단어가 찾아졌냐"만 중요함.
-                const isSolved = foundWords.includes(word);
-                
-                // 표시 조건:
-                // 1. 이미 찾은 단어임 (isSolved)
-                // 2. 힌트 3단계 이상 (구조 보기: _ _ _ _)
-                // 3. 힌트 4단계 (플래시: 단어 잠깐 보임)
-                
-                // 아무것도 해당 안되면? -> 아예 안 보여줌 (숨김)
-                if (!isSolved && hintStage < 3 && !isFlashing) return null;
+      {/* 1. 정답 표시 영역 (고정된 위치) */}
+      <div className="flex flex-wrap justify-center gap-x-6 gap-y-4 w-full px-2">
+        {targetWords.map((word, wIdx) => {
+            // 이 단어를 이미 찾았는지 확인
+            // (동일 단어 중복 처리를 위해 필터링 필요하지만, 시각적으로 foundWords에 포함되면 킴)
+            const isSolved = foundWords.includes(word);
+            
+            // 보여줄지 말지 결정
+            // 조건: 찾았거나, 플래시(힌트4)거나, 힌트3(언더바)일 때
+            const showPlaceholder = !isSolved && hintStage >= 3;
+            const showWord = isSolved || isFlashing;
 
-                return (
-                    <div key={wIdx} className="flex gap-1 items-end">
-                        {word.split('').map((char, cIdx) => {
-                            let displayChar = '';
-                            let styleClass = "border-b-4 border-gray-300"; // 기본 언더바 스타일
+            // 아직 못 찾았고 힌트도 없으면 -> 공간은 차지하되 안 보임 (투명 처리 대신 아예 렌더링 안함? 
+            // 아니면 입력 중인 단어가 들어갈 자리를 비워둠? 
+            // 요청하신 대로 "정답이 나오면 원래 순서대로 배열"하려면 자리를 잡아두는 게 좋음.
+            
+            if (!showWord && !showPlaceholder) {
+                // 힌트 1,2단계에서는 아직 단어의 존재(자리)를 모름. 숨김.
+                // 하지만 "2words이상에서... 정답이 나오면 사라지지 않고..." 조건 만족 위해
+                // 찾은 단어는 보이고 못 찾은 단어는 안 보여야 함.
+                return null;
+            }
 
-                            if (isSolved) {
-                                // 찾은 단어: 글자 보임, 초록색
-                                displayChar = char;
-                                styleClass = "text-green-600 font-black text-3xl border-none";
-                            } else if (isFlashing) {
-                                // [수정 7] 플래시: 글자 보임, 노란색
-                                displayChar = char;
-                                styleClass = "text-yellow-500 font-black text-3xl border-none animate-pulse";
-                            } else if (hintStage >= 3) {
-                                // [수정 6] 힌트 3단계: 언더바(_), 글자 숨김
-                                displayChar = ""; 
-                                styleClass = "border-b-4 border-gray-300 w-6 h-8 mx-0.5";
-                            }
-
-                            return (
-                                <div key={cIdx} className={`flex items-end justify-center ${styleClass}`}>
-                                    {displayChar}
-                                </div>
-                            );
-                        })}
-                    </div>
-                );
-            })}
-        </div>
-
-        {/* 하단: 현재 입력 중인 단어 (Typewriter Style) */}
-        {/* [수정 2] 박스 제거, 글자만 타이핑되듯이 나옴 */}
-        {!isCorrect && (
-           <div className="h-16 flex items-end justify-center">
-             {currentWord.length > 0 ? (
-               <div className="flex gap-1 animate-fade-in">
-                 {currentWord.split('').map((char, i) => (
-                   <span key={i} className="text-4xl font-black text-indigo-800 tracking-widest uppercase drop-shadow-sm">
-                     {char}
-                   </span>
-                 ))}
-                 {/* 커서 효과 (선택사항) */}
-                 <span className="w-1 h-8 bg-indigo-400 animate-pulse mb-1 ml-1"></span>
-               </div>
-             ) : (
-               // 입력 없을 때 안내
-               <span className="text-gray-300 text-sm font-bold tracking-[0.3em] opacity-40 mb-2">
-                 TYPE ANSWER
-               </span>
-             )}
-           </div>
-        )}
-        
+            return (
+                <div key={wIdx} className="flex gap-1 items-end">
+                    {word.split('').map((char, cIdx) => {
+                        return (
+                            <div key={cIdx} className="flex items-end justify-center w-6 sm:w-8 h-10">
+                                {showWord ? (
+                                    // 정답/플래시: 흰색 글자 (박스 없음)
+                                    <span className={`text-2xl sm:text-3xl font-black ${isSolved ? 'text-green-400' : 'text-yellow-300 animate-pulse'}`}>
+                                        {char}
+                                    </span>
+                                ) : (
+                                    // 힌트 3단계: 언더바 (글자 없음)
+                                    <div className="w-full h-1 bg-white/50 rounded-full mb-2"></div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        })}
       </div>
+
+      {/* 2. 현재 입력 중인 단어 (Typewriter Style) */}
+      {/* 정답을 다 맞추지 않았을 때만 입력창 표시 */}
+      {!isCorrect && (
+         <div className="mt-8 h-12 flex items-end justify-center">
+           {currentWord.length > 0 ? (
+             <div className="flex gap-1 animate-fade-in">
+               {currentWord.split('').map((char, i) => (
+                 <div key={i} className="w-8 flex justify-center">
+                    <span className="text-4xl font-black text-white drop-shadow-md">
+                      {char}
+                    </span>
+                 </div>
+               ))}
+               {/* 커서 효과 */}
+               <div className="w-1 h-8 bg-white/70 animate-pulse mb-1 ml-1"></div>
+             </div>
+           ) : (
+             // 입력 대기 중일 때 (힌트 3단계 미만이면 여기가 메인 화면처럼 보임)
+             // 힌트 3단계 미만이고 아직 찾은 단어가 하나도 없으면 "Type Answer" 표시
+             (hintStage < 3 && foundWords.length === 0) && (
+                <span className="text-white/40 text-sm font-bold tracking-[0.3em] animate-pulse">
+                  TAP LETTERS
+                </span>
+             )
+           )}
+         </div>
+      )}
+      
     </div>
   );
 };
