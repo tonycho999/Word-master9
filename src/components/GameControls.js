@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shuffle, RotateCcw, Delete, Lightbulb, Share2, Play } from 'lucide-react';
+import { Shuffle, Delete, Lightbulb, Share2, Play } from 'lucide-react';
 // ▼▼▼ [필수] 광고 버튼 컴포넌트 불러오기 ▼▼▼
 import AdButton from './AdButton'; 
 
@@ -23,11 +23,11 @@ const GameControls = ({
   children        // AnswerBoard (정답판)
 }) => {
   
-  // 공유하기 기능 (작성하신 코드 유지)
+  // 공유하기 기능
   const handleShare = async () => {
     const shareData = {
       title: 'Word Master',
-      text: `Try this Word Master puzzle! Level: ${category}`, // 텍스트 약간 다듬음
+      text: `Try this Word Master puzzle! Level: ${category}`,
       url: window.location.href,
     };
 
@@ -116,8 +116,10 @@ const GameControls = ({
           <div className="flex flex-wrap justify-center gap-1.5">
             {scrambledLetters.map((item, index) => (
               <button
-                key={index} // item.id가 없어도 안전하게 index 사용
+                key={index}
+                // ▼▼▼ [핵심 수정] 글자(char)와 위치(index)를 넘겨줍니다 ▼▼▼
                 onClick={() => onLetterClick(item.char, index)}
+                // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
                 disabled={item.isUsed}
                 className={`
                   w-11 h-11 text-lg font-black rounded-lg shadow-md transition-all duration-100 flex items-center justify-center
@@ -148,7 +150,7 @@ const GameControls = ({
         ) : (
           // 게임 중일 때: 광고 버튼 + 공유 버튼
           <>
-            {/* ▼▼▼ 광고 버튼 (AdButton) 추가됨 ▼▼▼ */}
+            {/* 광고 버튼 */}
             <AdButton onReward={onRewardAd} />
             
             {/* 공유 버튼 */}
