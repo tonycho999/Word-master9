@@ -13,8 +13,9 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
   const [selectedLetters, setSelectedLetters] = useState([]); 
   const [scrambledLetters, setScrambledLetters] = useState([]); 
   
-  const [targetWords, setTargetWords] = useState([]); 
-  const [foundWords, setFoundWords] = useState([]);   
+  // 정답 관리
+  const [targetWords, setTargetWords] = useState([]); // ["SPICY", "PASTA"]
+  const [foundWords, setFoundWords] = useState([]);   // ["PASTA"]
   
   const [category, setCategory] = useState('General');
   const [wordType, setWordType] = useState('Normal');
@@ -22,7 +23,7 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
   const [hintStage, setHintStage] = useState(0);
   const [hintMessage, setHintMessage] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
-  const [isFlashing, setIsFlashing] = useState(false); // [추가] 0.5초 플래시용
+  const [isFlashing, setIsFlashing] = useState(false); // 힌트 4단계용
 
   useEffect(() => {
     const config = LEVEL_CONFIG.find(c => level <= c.maxLevel) || LEVEL_CONFIG[LEVEL_CONFIG.length - 1];
@@ -52,6 +53,7 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
     const wordIndex = (level * 13 + 7) % targetDB.length;
     const selectedData = targetDB[wordIndex];
 
+    // 공백 기준으로 단어 분리 (2단어 이상 지원)
     const splitWords = selectedData.word.split(' ').filter(w => w.length > 0);
     const combinedString = splitWords.join('');
 
@@ -59,6 +61,7 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
     setCategory(selectedData.category);
     setWordType(selectedData.type);
     
+    // 셔플 초기화
     const chars = combinedString.split('').map((char, index) => ({
       char,
       id: index,
@@ -94,28 +97,28 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
       return newArr;
     });
 
-    // 정답 체크 (부분 정답 포함)
-    const matchIndex = targetWords.findIndex(word => word === newWord);
+    // 부분 정답 체크
+    // 입력한 단어(newWord)가 정답 배열(targetWords)에 있는지 확인
+    const isTargetWord = targetWords.includes(newWord);
+    const isAlreadyFound = foundWords.includes(newWord);
     
-    const remainingWords = targetWords.filter((w) => {
-        const targetCount = targetWords.filter(t => t === w).length;
-        const foundCount = foundWords.filter(f => f === w).length;
-        return w === newWord && foundCount < targetCount;
-    });
+    // 중복 단어 처리 (예: "GO GO" -> 첫번째 GO 맞추면 두번째 GO 남음)
+    // foundWords에 있는 개수보다 targetWords에 있는 개수가 더 많아야 함
+    const targetCount = targetWords.filter(t => t === newWord).length;
+    const foundCount = foundWords.filter(f => f === newWord).length;
 
-    if (remainingWords.length > 0) {
-      // [수정 3] 부분 정답 시 간단한 메시지와 함께 입력창 비우기
+    if (isTargetWord && foundCount < targetCount) {
+      // ★ 정답 발견! ★
       playSound('success');
-      // showMessage('Good!'); // 필요하면 주석 해제 (너무 자주 뜨면 방해됨)
       
-      const matchedWord = remainingWords[0];
-      const newFoundList = [...foundWords, matchedWord];
+      const newFoundList = [...foundWords, newWord];
       setFoundWords(newFoundList);
 
-      // 입력 초기화
+      // 입력창 비우기 & 백스페이스 기록 삭제
       setCurrentWord('');
       setSelectedLetters([]);
 
+      // 사용된 버튼들을 'isSolved'로 고정 (셔플/백스페이스 영향 안 받게)
       setScrambledLetters((prev) => {
         const newArr = [...prev];
         const currentIndices = [...selectedLetters.map(s => s.index), index];
@@ -128,6 +131,7 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
         return newArr;
       });
 
+      // 전체 클리어 체크
       if (newFoundList.length === targetWords.length) {
         setIsCorrect(true);
       }
@@ -163,19 +167,32 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
     })));
   };
 
+  // [수정] 셔플: 입력 중인 글자나 찾은 단어는 건드리지 않고, 남은 버튼만 섞음
   const handleShuffle = () => {
     playSound('shuffle');
-    handleReset();
-    setTimeout(() => {
-        setScrambledLetters((prev) => {
-          const newArr = [...prev];
-          for (let i = newArr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-          }
-          return newArr;
-        });
-    }, 10);
+    
+    setScrambledLetters((prev) => {
+      const newArr = [...prev];
+      
+      // 섞을 수 있는(아직 안 쓴) 인덱스들만 모음
+      const availableIndices = [];
+      newArr.forEach((item, idx) => {
+        if (!item.isUsed && !item.isSolved) {
+          availableIndices.push(idx);
+        }
+      });
+
+      // 그 인덱스들끼리만 내용물 교환
+      for (let i = availableIndices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const idxA = availableIndices[i];
+        const idxB = availableIndices[j];
+        
+        // 스왑
+        [newArr[idxA], newArr[idxB]] = [newArr[idxB], newArr[idxA]];
+      }
+      return newArr;
+    });
   };
 
   const handleHint = () => {
@@ -200,15 +217,13 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
             const firsts = targetWords.map(w => w[0]).join(' ');
             message = `First: ${firsts} | Last: ${lastLetters}`;
             break;
-        case 3: // [수정 6] 자리수 보여주기 (AnswerBoard에서 처리)
+        case 3: 
             message = `Length Revealed`;
             break;
-        case 4: // [수정 7] 0.5초 플래시
+        case 4: 
             message = "Quick Look!";
             setIsFlashing(true);
-            setTimeout(() => {
-              setIsFlashing(false); // 0.5초 뒤 끔
-            }, 500);
+            setTimeout(() => setIsFlashing(false), 500); // 0.5초만 보여줌
             break;
         default: break;
     }
@@ -227,7 +242,7 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
     hintStage,
     hintMessage,
     isCorrect,
-    isFlashing, // AnswerBoard로 전달
+    isFlashing, 
     handleLetterClick,
     handleBackspace,
     handleReset,
