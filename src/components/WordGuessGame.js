@@ -175,7 +175,7 @@ const WordGuessGame = () => {
             onBackspace={game.handleBackspace} 
             onNextLevel={processNextLevel}
         >
-            <AnswerBoard currentWord={game.currentWord} solvedWords={game.solvedWords} selectedLetters={game.selectedLetters} isCorrect={game.isCorrect} isFlashing={game.isFlashing} hintStage={game.hintStage} message={auth.message} />
+            <AnswerBoard currentWord={game.currentWord} solvedWords={game.solvedWords} selectedLetters={game.selectedLetters} isCorrect={game.isCorrect} isFlashing={game.isFlashing} hintStage={game.hintStage} message={auth.message} targetWord={game.targetWord}/>
         </GameControls>
       </div>
 
