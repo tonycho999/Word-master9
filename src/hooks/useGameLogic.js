@@ -160,6 +160,7 @@ export const useGameLogic = (playSound, level, score, setScore, showMessage) => 
   return {
     currentWord,
     setCurrentWord, // 필요시 노출
+    selectedLetters,
     scrambledLetters,
     solvedWords,
     setSolvedWords,
