@@ -1,36 +1,34 @@
 import React from 'react';
 import { Shuffle, Delete, Lightbulb, Share2, Play } from 'lucide-react';
-// ▼▼▼ [필수] 광고 버튼 컴포넌트 불러오기 ▼▼▼
 import AdButton from './AdButton'; 
 
 const GameControls = ({ 
   category, 
   wordType, 
-  wordCountDisplay, 
+  // wordCountDisplay, // <-- 이제 이거 안 쓰고 고정 텍스트 사용
   hintMessage, 
   isCorrect, 
   hintStage, 
   hintButtonText, 
   onHint, 
   onShuffle, 
-  onRewardAd,     // 광고 보상 함수
-  onRewardShare,  // 공유 보상 함수
+  onRewardAd, 
+  onRewardShare, 
   scrambledLetters, 
   onLetterClick, 
   onReset, 
   onBackspace, 
   onNextLevel, 
-  children        // AnswerBoard (정답판)
+  targetWords = [], // [추가] 정답 표시용
+  children 
 }) => {
   
-  // 공유하기 기능
   const handleShare = async () => {
     const shareData = {
       title: 'Word Master',
       text: `Try this Word Master puzzle! Level: ${category}`,
       url: window.location.href,
     };
-
     try {
       if (navigator.share) {
         await navigator.share(shareData);
@@ -51,8 +49,9 @@ const GameControls = ({
       {/* 1. 상단 정보 (카테고리 & 타입) */}
       <div className="w-full flex flex-col items-center">
         <div className="flex items-center gap-2 mb-1">
+          {/* [수정 1] 무조건 "1 WORD"로 고정 */}
           <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase">
-            {wordCountDisplay}
+            1 WORD
           </span>
           <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase ${
             wordType === 'NORMAL' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'
@@ -65,32 +64,27 @@ const GameControls = ({
         </h2>
       </div>
 
-      {/* 2. 게임판 (AnswerBoard) - 가장 잘 보여야 하므로 상단 배치 */}
-      <div className="w-full bg-indigo-50/50 rounded-xl p-4 min-h-[100px] flex items-center justify-center relative mb-2">
+      {/* 2. 게임판 (AnswerBoard) */}
+      <div className="w-full bg-transparent p-2 min-h-[100px] flex items-center justify-center relative mb-2">
          {children}
       </div>
 
       {/* 3. 힌트 메시지 */}
       <div className="h-5 flex items-center justify-center w-full">
          {hintMessage && !isCorrect && (
-           <span className="text-xs font-bold text-indigo-500 animate-pulse">
+           <span className="text-xs font-bold text-indigo-500 animate-pulse bg-indigo-50 px-2 py-1 rounded-lg">
              💡 {hintMessage}
            </span>
          )}
       </div>
 
-      {/* 4. 컨트롤 버튼 (섞기, 힌트, 지우기) */}
+      {/* 4. 컨트롤 버튼 */}
       {!isCorrect && (
         <div className="flex gap-2 w-full justify-center px-2">
-           {/* 섞기 */}
-           <button 
-             onClick={onShuffle} 
-             className="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-600 shadow-sm active:scale-95 transition-colors"
-           >
+           <button onClick={onShuffle} className="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-600 shadow-sm active:scale-95 transition-colors">
              <Shuffle size={20} />
            </button>
            
-           {/* 힌트 */}
            <button 
              onClick={onHint} 
              disabled={hintStage >= 4}
@@ -100,11 +94,7 @@ const GameControls = ({
              <span className="text-xs">{hintButtonText}</span>
            </button>
 
-           {/* 지우기 */}
-           <button 
-             onClick={onBackspace} 
-             className="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-600 shadow-sm active:scale-95 transition-colors"
-           >
+           <button onClick={onBackspace} className="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-600 shadow-sm active:scale-95 transition-colors">
              <Delete size={20} />
            </button>
         </div>
@@ -117,14 +107,12 @@ const GameControls = ({
             {scrambledLetters.map((item, index) => (
               <button
                 key={index}
-                // ▼▼▼ [핵심 수정] 글자(char)와 위치(index)를 넘겨줍니다 ▼▼▼
                 onClick={() => onLetterClick(item.char, index)}
-                // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-                disabled={item.isUsed}
+                disabled={item.isUsed} // isSolved된 것도 isUsed가 true라 비활성됨
                 className={`
                   w-11 h-11 text-lg font-black rounded-lg shadow-md transition-all duration-100 flex items-center justify-center
                   ${item.isUsed 
-                    ? 'bg-gray-100 text-gray-300 shadow-none scale-90' 
+                    ? 'bg-gray-100 text-gray-300 shadow-none scale-90 opacity-50' 
                     : 'bg-white text-indigo-600 hover:bg-indigo-50 border-b-4 border-gray-200 active:border-b-0 active:translate-y-1'
                   }
                 `}
@@ -136,24 +124,29 @@ const GameControls = ({
         </div>
       )}
 
-      {/* 6. 하단 액션 영역 (광고 & 공유 & 다음 레벨) */}
+      {/* 6. 하단 액션 영역 */}
       <div className="w-full px-2 mt-4 border-t border-gray-100 pt-4 flex flex-col gap-3">
         
         {isCorrect ? (
-          // 정답일 때: 다음 레벨 버튼
-          <button
-            onClick={onNextLevel}
-            className="w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xl font-black rounded-2xl shadow-xl shadow-indigo-200 flex items-center justify-center gap-2 animate-bounce hover:scale-105 transition-transform"
-          >
-            NEXT LEVEL <Play size={24} fill="currentColor" />
-          </button>
+          <div className="flex flex-col gap-4 w-full animate-fade-in-up">
+            {/* [수정 5] 정답 단어 보여주기 (원래 순서대로) */}
+            <div className="w-full text-center">
+                <h3 className="text-gray-400 text-xs font-bold tracking-widest mb-1">ANSWER</h3>
+                <div className="text-3xl font-black text-indigo-600 tracking-wider">
+                  {targetWords.join(' ')}
+                </div>
+            </div>
+
+            <button
+              onClick={onNextLevel}
+              className="w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xl font-black rounded-2xl shadow-xl shadow-indigo-200 flex items-center justify-center gap-2 animate-bounce hover:scale-105 transition-transform"
+            >
+              NEXT LEVEL <Play size={24} fill="currentColor" />
+            </button>
+          </div>
         ) : (
-          // 게임 중일 때: 광고 버튼 + 공유 버튼
           <>
-            {/* 광고 버튼 */}
             <AdButton onReward={onRewardAd} />
-            
-            {/* 공유 버튼 */}
             <button 
                 onClick={handleShare}
                 className="w-full py-2 text-gray-400 font-bold text-xs flex items-center justify-center gap-1 hover:text-indigo-500 transition-colors"
